@@ -1,241 +1,73 @@
 ﻿import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:juix_na/app/app_colors.dart';
 import 'package:juix_na/app/theme_controller.dart';
-import 'package:provider/provider.dart';
+import 'package:juix_na/features/inventory/model/inventory_models.dart';
+import 'package:juix_na/features/inventory/viewmodel/stock_movement_state.dart';
+import 'package:juix_na/features/inventory/viewmodel/stock_movement_vm.dart';
 
-enum _MovementType { stockIn, stockOut }
-
-class ProductOption {
-  final String id;
-  final String name;
-  final double unitCost;
-  final bool batchTracked;
-  final int availableStock;
-
-  const ProductOption({
-    required this.id,
-    required this.name,
-    required this.unitCost,
-    required this.batchTracked,
-    required this.availableStock,
-  });
-}
-
-class LocationOption {
-  final String id;
-  final String name;
-  const LocationOption(this.id, this.name);
-}
-
-class StockMovementScreen extends StatefulWidget {
+class StockMovementScreen extends ConsumerStatefulWidget {
   const StockMovementScreen({super.key});
 
   @override
-  State<StockMovementScreen> createState() => _StockMovementScreenState();
+  ConsumerState<StockMovementScreen> createState() =>
+      _StockMovementScreenState();
 }
 
-class _StockMovementScreenState extends State<StockMovementScreen> {
-  _MovementType _movementType = _MovementType.stockOut;
-  DateTime _date = DateTime.now();
-  final _notesController = TextEditingController();
-  final _quantityController = TextEditingController(text: '120');
-  String? _selectedProductId = 'mango';
-  String? _selectedBatchId;
-  String? _selectedLocationId = 'main';
-
-  final _products = const [
-    ProductOption(
-      id: 'mango',
-      name: 'Mango Tango Juice (500ml)',
-      unitCost: 4.50,
-      batchTracked: true,
-      availableStock: 60,
-    ),
-    ProductOption(
-      id: 'orange',
-      name: 'Orange Zest Concentrate',
-      unitCost: 3.10,
-      batchTracked: false,
-      availableStock: 120,
-    ),
-  ];
-
-  final _locations = const [
-    LocationOption('main', 'Main Store (Primary)'),
-    LocationOption('cold', 'Cold Room A'),
-    LocationOption('dry', 'Dry Storage'),
-  ];
-
-  final _batches = const [
-    'Batch 2023-10-01',
-    'Batch 2023-09-15',
-    'Batch 2023-09-01',
-  ];
-
-  bool _pendingSync = true;
-  bool _online = true;
+class _StockMovementScreenState extends ConsumerState<StockMovementScreen> {
+  final TextEditingController _notesController = TextEditingController();
+  final TextEditingController _reasonController = TextEditingController();
+  final TextEditingController _referenceController = TextEditingController();
 
   @override
   void dispose() {
     _notesController.dispose();
-    _quantityController.dispose();
+    _reasonController.dispose();
+    _referenceController.dispose();
     super.dispose();
   }
 
-  ProductOption get _selectedProduct =>
-      _products.firstWhere((p) => p.id == _selectedProductId);
-
-  int get _availableStock => _selectedProduct.availableStock;
-
-  bool get _batchRequired => _selectedProduct.batchTracked;
-
-  bool get _quantityExceeds {
-    final qty = int.tryParse(_quantityController.text) ?? 0;
-    return qty > _availableStock;
-  }
-
-  bool get _hasErrors {
-    if (_selectedProductId == null) return true;
-    if (_batchRequired && (_selectedBatchId == null || _selectedBatchId!.isEmpty)) {
-      return true;
-    }
-    if ((_quantityController.text).isEmpty) return true;
-    if ((_quantityController.text) == '0') return true;
-    if (_quantityExceeds) return true;
-    return false;
-  }
-
-  void _pickDate() async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _date,
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
-    );
-    if (picked != null) {
-      setState(() => _date = picked);
+  /// Update controller text only if the value has changed.
+  /// This prevents cursor jumping on every build.
+  void _updateControllerIfChanged(
+    TextEditingController controller,
+    String newValue,
+  ) {
+    if (controller.text != newValue) {
+      final selection = controller.selection;
+      controller.text = newValue;
+      // Restore selection if it was valid, otherwise place at end
+      if (selection.isValid && selection.end <= newValue.length) {
+        controller.selection = selection;
+      } else {
+        controller.selection = TextSelection.collapsed(offset: newValue.length);
+      }
     }
   }
 
-  void _changeQty(int delta) {
-    final current = int.tryParse(_quantityController.text) ?? 0;
-    final next = (current + delta).clamp(0, 9999);
-    setState(() => _quantityController.text = next.toString());
-  }
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final cs = theme.colorScheme;
-    final dateLabel = DateFormat('MMM d, yyyy').format(_date);
+    // Watch ViewModel state
+    final movementState = ref.watch(stockMovementProvider);
+    final viewModel = ref.read(stockMovementProvider.notifier);
 
-    return Scaffold(
-      backgroundColor: cs.background,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
+    return movementState.when(
+      data: (state) => _buildContent(context, state, viewModel),
+      loading: () =>
+          const Scaffold(body: Center(child: CircularProgressIndicator())),
+      error: (error, stack) => Scaffold(
+        body: Center(
           child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Container(
-                decoration: BoxDecoration(
-                  color: isDark ? AppColors.darkSurface : AppColors.surface,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: AppColors.shadowSoft,
-                      blurRadius: 18,
-                      offset: Offset(0, 6),
-                    ),
-                  ],
-                  border: Border.all(
-                    color: isDark
-                        ? AppColors.borderSubtle.withOpacity(0.3)
-                        : Colors.transparent,
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _Header(
-                      onBack: () => Navigator.of(context).maybePop(),
-                      pendingSync: _pendingSync,
-                      online: _online,
-                    ),
-                    const SizedBox(height: 12),
-                    _MovementToggle(
-                      movementType: _movementType,
-                      onChanged: (type) => setState(() => _movementType = type),
-                    ),
-                    const SizedBox(height: 16),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: _FormCard(
-                        child: Column(
-                          children: [
-                            _PickerField(
-                              label: 'Date',
-                              value: dateLabel,
-                              onTap: _pickDate,
-                              icon: Icons.calendar_today_outlined,
-                            ),
-                            _PickerField(
-                              label: 'Product',
-                              value: _selectedProduct.name,
-                              onTap: () => _showProductPicker(context),
-                              icon: Icons.expand_more_rounded,
-                            ),
-                            _BatchField(
-                              required: _batchRequired,
-                              selectedBatch: _selectedBatchId,
-                              batches: _batches,
-                              onSelect: (batch) => setState(() {
-                                _selectedBatchId = batch;
-                              }),
-                            ),
-                            _QuantityField(
-                              controller: _quantityController,
-                              exceeds: _quantityExceeds,
-                              available: _availableStock,
-                              onChange: (val) =>
-                                  setState(() => _quantityController.text = val),
-                              onAdd: () => _changeQty(1),
-                              onRemove: () => _changeQty(-1),
-                            ),
-                            _InlineRow(
-                              left: _ChipField(
-                                label: 'Unit Cost',
-                                value:
-                                    '£${_selectedProduct.unitCost.toStringAsFixed(2)}',
-                                leading: Icons.local_offer_outlined,
-                                locked: true,
-                              ),
-                              right: _PickerField(
-                                label: 'Location',
-                                value: _locations
-                                    .firstWhere(
-                                        (l) => l.id == _selectedLocationId)
-                                    .name,
-                                onTap: () => _showLocationPicker(context),
-                                icon: Icons.expand_more_rounded,
-                              ),
-                            ),
-                            _NotesField(controller: _notesController),
-                            const SizedBox(height: 12),
-                            _RecentMovementsLink(onTap: () {}),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                  ],
-                ),
-              ),
+              Icon(Icons.error_outline, size: 48, color: AppColors.error),
               const SizedBox(height: 16),
-              _FooterActions(
-                enabled: !_hasErrors,
-                onCancel: () => Navigator.of(context).maybePop(),
-                onSave: () {},
+              Text('Error: ${error.toString()}'),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () => viewModel.clearError(),
+                child: const Text('Retry'),
               ),
             ],
           ),
@@ -243,210 +75,279 @@ class _StockMovementScreenState extends State<StockMovementScreen> {
       ),
     );
   }
-  Future<void> _showProductPicker(BuildContext context) async {
-    final choice = await showModalBottomSheet<String>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        final isDark = Theme.of(context).brightness == Brightness.dark;
-        return Container(
-          decoration: BoxDecoration(
-            color: isDark ? AppColors.darkSurface : AppColors.surface,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: ListView(
-            shrinkWrap: true,
-            children: _products
-                .map(
-                  (p) => ListTile(
-                    title: Text(p.name),
-                    subtitle: Text(
-                      '${p.availableStock} available',
-                      style: TextStyle(
-                        color: isDark
-                            ? AppColors.darkTextMuted
-                            : AppColors.textMuted,
-                      ),
-                    ),
-                    onTap: () => Navigator.of(context).pop(p.id),
-                  ),
-                )
-                .toList(),
-          ),
-        );
-      },
-    );
-    if (choice != null) {
-      setState(() {
-        _selectedProductId = choice;
-        _selectedBatchId = null;
-      });
-    }
-  }
 
-  Future<void> _showLocationPicker(BuildContext context) async {
-    final choice = await showModalBottomSheet<String>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        final isDark = Theme.of(context).brightness == Brightness.dark;
-        return Container(
-          decoration: BoxDecoration(
-            color: isDark ? AppColors.darkSurface : AppColors.surface,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: ListView(
-            shrinkWrap: true,
-            children: _locations
-                .map(
-                  (l) => ListTile(
-                    title: Text(l.name),
-                    onTap: () => Navigator.of(context).pop(l.id),
-                  ),
-                )
-                .toList(),
-          ),
-        );
-      },
-    );
-    if (choice != null) {
-      setState(() => _selectedLocationId = choice);
-    }
-  }
-}
-class _Header extends StatelessWidget {
-  final VoidCallback onBack;
-  final bool pendingSync;
-  final bool online;
+  Widget _buildContent(
+    BuildContext context,
+    StockMovementState state,
+    StockMovementViewModel viewModel,
+  ) {
+    // Update controllers only when state values change (not on every build)
+    _updateControllerIfChanged(_reasonController, state.reason);
+    _updateControllerIfChanged(_referenceController, state.reference ?? '');
+    _updateControllerIfChanged(_notesController, state.note ?? '');
 
-  const _Header({
-    required this.onBack,
-    required this.pendingSync,
-    required this.online,
-  });
+    final dateLabel = DateFormat('MM/dd/yyyy').format(state.date);
+    final exceeds = state.quantityExceedsAvailable;
+    final enabled = state.isValid && !state.isSubmitting;
 
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final themeController = context.read<ThemeController>();
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      child: Column(
-        children: [
-          Row(
+    return Scaffold(
+      backgroundColor: const Color(0xFFFDF7EE),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              IconButton(
-                icon: Icon(Icons.arrow_back,
-                    color: isDark ? Colors.white : AppColors.deepGreen),
-                onPressed: onBack,
+              _Header(online: true),
+              const SizedBox(height: 12),
+              _MovementToggle(
+                movement: state.movementType,
+                onChanged: (m) => viewModel.setMovementType(m),
               ),
-              const SizedBox(width: 4),
-              Expanded(
-                child: Text(
-                  'Stock Movement',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w800,
-                        color: isDark
-                            ? AppColors.darkTextPrimary
-                            : AppColors.deepGreen,
+              const SizedBox(height: 16),
+              if (state.error != null) ...[
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: AppColors.errorSoft,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.error),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.error_outline, color: AppColors.error),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          state.error!,
+                          style: const TextStyle(
+                            color: AppColors.error,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ),
+                      IconButton(
+                        icon: const Icon(Icons.close, size: 18),
+                        color: AppColors.error,
+                        onPressed: () => viewModel.clearError(),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              Row(
+              ],
+              _FormCard(
                 children: [
-                  Text(
-                    'Sync',
-                    style: TextStyle(
-                      color: AppColors.mango,
-                      fontWeight: FontWeight.w700,
-                    ),
+                  _PickerField(
+                    label: 'Date',
+                    value: dateLabel,
+                    icon: Icons.calendar_today_outlined,
+                    onTap: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: state.date,
+                        firstDate: DateTime(2020),
+                        lastDate: DateTime.now().add(const Duration(days: 365)),
+                      );
+                      if (picked != null) {
+                        viewModel.setDate(picked);
+                      }
+                    },
                   ),
-                  const SizedBox(width: 4),
-                  Container(
-                    decoration: const BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: AppGradients.primary,
-                    ),
-                    padding: const EdgeInsets.all(5),
-                  child: const Icon(
-                    Icons.bolt_rounded,
-                    size: 14,
-                    color: Colors.white,
+                  _PickerField(
+                    label: 'Product',
+                    value: state.selectedItem?.name ?? 'Select product',
+                    icon: Icons.expand_more_rounded,
+                    onTap: state.isLoadingItems
+                        ? null
+                        : () => _showProductPicker(context, state, viewModel),
+                    isLoading: state.isLoadingItems,
                   ),
-                ),
-                  IconButton(
-                    icon: Icon(
-                      isDark ? Icons.wb_sunny_rounded : Icons.nightlight_round,
-                      color:
-                          isDark ? AppColors.darkTextPrimary : AppColors.deepGreen,
-                    ),
-                    onPressed: themeController.toggle,
+                  if (state.selectedItem != null &&
+                      state.selectedLocationId != null) ...[
+                    if (state.isLoadingAvailableStock)
+                      const Padding(
+                        padding: EdgeInsets.all(16.0),
+                        child: Center(child: CircularProgressIndicator()),
+                      )
+                    else
+                      _QuantityField(
+                        value: state.quantity.toInt(),
+                        available: state.availableStock?.toInt() ?? 0,
+                        exceeds: exceeds,
+                        onChange: (v) => viewModel.setQuantity(v.toDouble()),
+                        errorText: state.quantityError,
+                      ),
+                  ],
+                  const SizedBox(height: 12),
+                  _PickerField(
+                    label: 'Location',
+                    value: state.selectedLocation?.name ?? 'Select location',
+                    icon: Icons.expand_more_rounded,
+                    onTap: state.isLoadingLocations
+                        ? null
+                        : () => _showLocationPicker(context, state, viewModel),
+                    isLoading: state.isLoadingLocations,
                   ),
-                  IconButton(
-                    icon: Icon(Icons.more_horiz,
-                        color:
-                            isDark ? AppColors.darkTextPrimary : AppColors.deepGreen),
-                    onPressed: () {},
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _reasonController,
+                    decoration: InputDecoration(
+                      labelText: 'Reason *',
+                      hintText: 'e.g., SALE, BREAKAGE, ADJUSTMENT',
+                      errorText: state.fieldErrors['reason'],
+                    ),
+                    onChanged: (value) => viewModel.setReason(value),
+                    enabled: !state.isSubmitting,
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _referenceController,
+                    decoration: InputDecoration(
+                      labelText: 'Reference (optional)',
+                      hintText: 'e.g., SALE-2025-001',
+                      errorText: state.fieldErrors['reference'],
+                    ),
+                    onChanged: (value) =>
+                        viewModel.setReference(value.isEmpty ? null : value),
+                    enabled: !state.isSubmitting,
+                  ),
+                  const SizedBox(height: 12),
+                  _NotesField(
+                    controller: _notesController,
+                    onChanged: (value) =>
+                        viewModel.setNote(value.isEmpty ? null : value),
+                    enabled: !state.isSubmitting,
                   ),
                 ],
               ),
+              const SizedBox(height: 18),
+              _Footer(
+                enabled: enabled,
+                isLoading: state.isSubmitting,
+                onCancel: () => Navigator.of(context).maybePop(),
+                onSave: () async {
+                  await viewModel.createStockMovement();
+                  if (mounted) {
+                    final newState = ref.read(stockMovementProvider).value;
+                    if (newState?.isValid == true && newState?.error == null) {
+                      Navigator.of(context).maybePop();
+                    }
+                  }
+                },
+              ),
             ],
           ),
-          const SizedBox(height: 6),
-          _InfoPill(
-            icon: Icons.offline_bolt,
-            text: pendingSync
-                ? 'Pending Sync. Tap Sync to send now.'
-                : 'Saved offline. Will sync when online.',
-            background: isDark
-                ? AppColors.darkPill
-                : AppColors.mangoLight.withOpacity(0.12),
-          ),
-          const SizedBox(height: 8),
-          _InfoPill(
-            icon: online ? Icons.wifi : Icons.wifi_off,
-            text: online ? 'ONLINE • LAST SYNC: 10:42 AM' : 'OFFLINE',
-            background: isDark
-                ? AppColors.darkPill
-                : AppColors.successSoft.withOpacity(0.6),
-          ),
-        ],
+        ),
       ),
     );
   }
-}
-class _MovementToggle extends StatelessWidget {
-  final _MovementType movementType;
-  final ValueChanged<_MovementType> onChanged;
 
-  const _MovementToggle({
-    required this.movementType,
-    required this.onChanged,
-  });
+  // Helper methods for pickers
+  void _showProductPicker(
+    BuildContext context,
+    StockMovementState state,
+    StockMovementViewModel viewModel,
+  ) {
+    // Load products if not already loaded
+    if (state.availableItems.isEmpty && !state.isLoadingItems) {
+      viewModel.loadProducts();
+    }
 
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Container(
-        decoration: BoxDecoration(
-          color: isDark ? AppColors.darkPill : AppColors.surfaceMuted,
-          borderRadius: BorderRadius.circular(28),
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(16),
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.7,
         ),
-        height: 48,
-        child: Row(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            _SegmentButton(
-              label: 'Stock-In',
-              selected: movementType == _MovementType.stockIn,
-              onTap: () => onChanged(_MovementType.stockIn),
+            Text(
+              'Select Product',
+              style: Theme.of(context).textTheme.titleLarge,
             ),
-            _SegmentButton(
-              label: 'Stock-Out',
-              selected: movementType == _MovementType.stockOut,
-              onTap: () => onChanged(_MovementType.stockOut),
+            const SizedBox(height: 16),
+            if (state.isLoadingItems)
+              const Center(child: CircularProgressIndicator())
+            else if (state.availableItems.isEmpty)
+              const Padding(
+                padding: EdgeInsets.all(32.0),
+                child: Text('No products available'),
+              )
+            else
+              Flexible(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: state.availableItems.length,
+                  itemBuilder: (context, index) {
+                    final item = state.availableItems[index];
+                    return ListTile(
+                      title: Text(item.name),
+                      subtitle: Text('SKU: ${item.sku}'),
+                      trailing: Text(
+                        '${item.totalQuantity ?? item.currentStock ?? 0.0} ${item.unit}',
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      onTap: () {
+                        viewModel.selectItem(item);
+                        Navigator.pop(context);
+                      },
+                    );
+                  },
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showLocationPicker(
+    BuildContext context,
+    StockMovementState state,
+    StockMovementViewModel viewModel,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Select Location',
+              style: Theme.of(context).textTheme.titleLarge,
             ),
+            const SizedBox(height: 16),
+            if (state.availableLocations.isEmpty)
+              const Padding(
+                padding: EdgeInsets.all(32.0),
+                child: Text('No locations available'),
+              )
+            else
+              ListView.builder(
+                shrinkWrap: true,
+                itemCount: state.availableLocations.length,
+                itemBuilder: (context, index) {
+                  final location = state.availableLocations[index];
+                  return ListTile(
+                    title: Text(location.name),
+                    subtitle: location.description != null
+                        ? Text(location.description!)
+                        : null,
+                    leading: Radio<int?>(
+                      value: location.id,
+                      groupValue: state.selectedLocationId,
+                      onChanged: (value) {
+                        viewModel.selectLocation(value);
+                        Navigator.pop(context);
+                      },
+                    ),
+                  );
+                },
+              ),
           ],
         ),
       ),
@@ -454,12 +355,131 @@ class _MovementToggle extends StatelessWidget {
   }
 }
 
-class _SegmentButton extends StatelessWidget {
+class _Header extends ConsumerWidget {
+  final bool online;
+  const _Header({required this.online});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final themeNotifier = ref.read(themeControllerProvider.notifier);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            IconButton(
+              onPressed: () => Navigator.of(context).maybePop(),
+              icon: Icon(
+                Icons.arrow_back,
+                color: isDark ? Colors.white : AppColors.deepGreen,
+              ),
+            ),
+            const SizedBox(width: 4),
+            const Expanded(
+              child: Text(
+                'Stock Movement',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.deepGreen,
+                ),
+              ),
+            ),
+            // Online status indicator (informational only - no sync needed for online-only app)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: online ? AppColors.successSoft : AppColors.errorSoft,
+                borderRadius: BorderRadius.circular(50),
+                border: Border.all(
+                  color: online
+                      ? AppColors.success.withOpacity(0.3)
+                      : AppColors.error.withOpacity(0.3),
+                ),
+              ),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 4,
+                    backgroundColor: online
+                        ? AppColors.success
+                        : AppColors.error,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    online ? 'Online' : 'Offline',
+                    style: TextStyle(
+                      color: online ? AppColors.success : AppColors.error,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 4),
+            IconButton(
+              icon: Icon(
+                isDark ? Icons.wb_sunny_rounded : Icons.nightlight_round,
+                color: AppColors.deepGreen,
+              ),
+              onPressed: themeNotifier.toggle,
+            ),
+          ],
+        ),
+        // Connectivity status (informational only - app requires online connection)
+        if (!online) ...[
+          const SizedBox(height: 10),
+          _InfoPill(
+            icon: Icons.wifi_off,
+            text: 'No internet connection - Please check your network',
+            background: AppColors.errorSoft,
+            iconColor: AppColors.error,
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _MovementToggle extends StatelessWidget {
+  final StockMovementType movement;
+  final ValueChanged<StockMovementType> onChanged;
+  const _MovementToggle({required this.movement, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 46,
+      decoration: BoxDecoration(
+        color: const Color(0xFFE9DDCC),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        children: [
+          _Segment(
+            label: 'Stock-In',
+            selected: movement == StockMovementType.stockIn,
+            onTap: () => onChanged(StockMovementType.stockIn),
+          ),
+          _Segment(
+            label: 'Stock-Out',
+            selected: movement == StockMovementType.stockOut,
+            onTap: () => onChanged(StockMovementType.stockOut),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Segment extends StatelessWidget {
   final String label;
   final bool selected;
   final VoidCallback onTap;
-
-  const _SegmentButton({
+  const _Segment({
     required this.label,
     required this.selected,
     required this.onTap,
@@ -475,17 +495,20 @@ class _SegmentButton extends StatelessWidget {
           decoration: BoxDecoration(
             gradient: selected ? AppGradients.primary : null,
             color: selected ? null : Colors.transparent,
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(999),
           ),
           child: InkWell(
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(999),
             onTap: onTap,
             child: Center(
-              child: Text(
-                label,
-                style: TextStyle(
-                  fontWeight: FontWeight.w700,
-                  color: selected ? Colors.white : AppColors.textMuted,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    color: selected ? Colors.white : AppColors.textMuted,
+                  ),
                 ),
               ),
             ),
@@ -495,32 +518,28 @@ class _SegmentButton extends StatelessWidget {
     );
   }
 }
+
 class _FormCard extends StatelessWidget {
-  final Widget child;
-  const _FormCard({required this.child});
+  final List<Widget> children;
+  const _FormCard({required this.children});
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       decoration: BoxDecoration(
-        color: isDark ? AppColors.darkCard : AppColors.background,
+        color: isDark ? AppColors.darkSurface : Colors.white,
         borderRadius: BorderRadius.circular(24),
         boxShadow: const [
           BoxShadow(
             color: AppColors.shadowSoft,
-            blurRadius: 16,
+            blurRadius: 14,
             offset: Offset(0, 6),
           ),
         ],
-        border: Border.all(
-          color: isDark
-              ? AppColors.borderSubtle.withOpacity(0.2)
-              : Colors.transparent,
-        ),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      child: child,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      child: Column(children: children),
     );
   }
 }
@@ -528,24 +547,21 @@ class _FormCard extends StatelessWidget {
 class _PickerField extends StatelessWidget {
   final String label;
   final String value;
-  final VoidCallback onTap;
   final IconData icon;
+  final VoidCallback? onTap;
+  final bool isLoading;
 
   const _PickerField({
     required this.label,
     required this.value,
-    required this.onTap,
     required this.icon,
+    required this.onTap,
+    this.isLoading = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final textColor =
-        isDark ? AppColors.darkTextPrimary : AppColors.deepGreen;
-    final borderColor =
-        isDark ? AppColors.borderSubtle.withOpacity(0.3) : AppColors.borderSoft;
-
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Column(
@@ -561,27 +577,35 @@ class _PickerField extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           InkWell(
-            onTap: onTap,
+            onTap: isLoading ? null : onTap,
             borderRadius: BorderRadius.circular(16),
             child: Container(
-              height: 52,
+              height: 54,
               decoration: BoxDecoration(
-                color: isDark ? AppColors.darkSurface : AppColors.background,
+                color: isDark ? AppColors.darkSurface : Colors.white,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: borderColor),
+                border: Border.all(
+                  color: isDark
+                      ? AppColors.borderSubtle.withOpacity(0.3)
+                      : AppColors.borderSoft,
+                ),
               ),
               padding: const EdgeInsets.symmetric(horizontal: 14),
               child: Row(
                 children: [
                   Expanded(
-                    child: Text(
-                      value,
-                      style: TextStyle(
-                        color: textColor,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+                    child: isLoading
+                        ? const Center(child: CircularProgressIndicator())
+                        : Text(
+                            value,
+                            style: TextStyle(
+                              color: isDark
+                                  ? AppColors.darkTextPrimary
+                                  : AppColors.deepGreen,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 15,
+                            ),
+                          ),
                   ),
                   Icon(icon, color: AppColors.mango),
                 ],
@@ -595,27 +619,28 @@ class _PickerField extends StatelessWidget {
 }
 
 class _BatchField extends StatelessWidget {
+  final String? value;
   final bool required;
-  final String? selectedBatch;
-  final List<String> batches;
-  final ValueChanged<String> onSelect;
-
+  final VoidCallback onTap;
+  final String? errorText;
+  final String? helper;
   const _BatchField({
+    required this.value,
     required this.required,
-    required this.selectedBatch,
-    required this.batches,
-    required this.onSelect,
+    required this.onTap,
+    this.errorText,
+    this.helper,
   });
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final hasError = required && (selectedBatch == null || selectedBatch!.isEmpty);
+    final hasError = errorText != null;
     final borderColor = hasError
         ? AppColors.error
         : isDark
-            ? AppColors.borderSubtle.withOpacity(0.3)
-            : AppColors.borderSoft;
+        ? AppColors.borderSubtle.withOpacity(0.3)
+        : AppColors.borderSoft;
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
@@ -636,69 +661,37 @@ class _BatchField extends StatelessWidget {
               Text(
                 required ? 'Required' : 'Optional',
                 style: TextStyle(
-                  color: required ? AppColors.error : AppColors.textMuted,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 12,
+                  color: hasError ? AppColors.error : AppColors.textMuted,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 11,
                 ),
               ),
             ],
           ),
           const SizedBox(height: 8),
           InkWell(
+            onTap: onTap,
             borderRadius: BorderRadius.circular(16),
-            onTap: () async {
-              final choice = await showModalBottomSheet<String>(
-                context: context,
-                backgroundColor: Colors.transparent,
-                builder: (context) {
-                  final modalDark =
-                      Theme.of(context).brightness == Brightness.dark;
-                  return Container(
-                    decoration: BoxDecoration(
-                      color: modalDark
-                          ? AppColors.darkSurface
-                          : AppColors.surface,
-                      borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(20),
-                      ),
-                    ),
-                    child: ListView(
-                      shrinkWrap: true,
-                      children: batches
-                          .map(
-                            (b) => ListTile(
-                              title: Text(b),
-                              onTap: () => Navigator.of(context).pop(b),
-                            ),
-                          )
-                          .toList(),
-                    ),
-                  );
-                },
-              );
-              if (choice != null) onSelect(choice);
-            },
             child: Container(
-              height: 52,
+              height: 54,
               decoration: BoxDecoration(
-                color: isDark ? AppColors.darkSurface : AppColors.background,
+                color: isDark ? AppColors.darkSurface : Colors.white,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: borderColor),
+                border: Border.all(color: borderColor, width: 1.2),
               ),
               padding: const EdgeInsets.symmetric(horizontal: 14),
               child: Row(
                 children: [
                   Expanded(
                     child: Text(
-                      selectedBatch ?? 'Select Batch',
+                      value ?? 'Select Batch',
                       style: TextStyle(
-                        color: selectedBatch == null
-                            ? AppColors.textMuted
-                            : (isDark
-                                ? AppColors.darkTextPrimary
-                                : AppColors.deepGreen),
-                        fontWeight: FontWeight.w600,
-                        fontSize: 15,
+                        color: hasError
+                            ? AppColors.error
+                            : isDark
+                            ? AppColors.darkTextPrimary
+                            : AppColors.deepGreen,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ),
@@ -712,9 +705,20 @@ class _BatchField extends StatelessWidget {
           ),
           if (hasError) ...[
             const SizedBox(height: 6),
-            const Text(
-              'Batch selection is required. This product is batch-tracked.',
-              style: TextStyle(
+            Text(
+              errorText!,
+              style: const TextStyle(
+                color: AppColors.error,
+                fontWeight: FontWeight.w700,
+                fontSize: 12,
+              ),
+            ),
+          ],
+          if (helper != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              helper!,
+              style: const TextStyle(
                 color: AppColors.error,
                 fontWeight: FontWeight.w600,
                 fontSize: 12,
@@ -726,21 +730,20 @@ class _BatchField extends StatelessWidget {
     );
   }
 }
+
 class _QuantityField extends StatelessWidget {
-  final TextEditingController controller;
-  final bool exceeds;
+  final int value;
   final int available;
-  final ValueChanged<String> onChange;
-  final VoidCallback onAdd;
-  final VoidCallback onRemove;
+  final bool exceeds;
+  final ValueChanged<int> onChange;
+  final String? errorText;
 
   const _QuantityField({
-    required this.controller,
-    required this.exceeds,
+    required this.value,
     required this.available,
+    required this.exceeds,
     required this.onChange,
-    required this.onAdd,
-    required this.onRemove,
+    this.errorText,
   });
 
   @override
@@ -749,8 +752,8 @@ class _QuantityField extends StatelessWidget {
     final borderColor = exceeds
         ? AppColors.error
         : isDark
-            ? AppColors.borderSubtle.withOpacity(0.3)
-            : AppColors.borderSoft;
+        ? AppColors.borderSubtle.withOpacity(0.3)
+        : AppColors.borderSoft;
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
@@ -767,46 +770,40 @@ class _QuantityField extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Container(
-            height: 56,
+            height: 58,
             decoration: BoxDecoration(
-              color: isDark ? AppColors.darkSurface : AppColors.background,
-              borderRadius: BorderRadius.circular(28),
+              color: isDark ? AppColors.darkSurface : Colors.white,
+              borderRadius: BorderRadius.circular(999),
               border: Border.all(color: borderColor, width: 1.2),
             ),
             child: Row(
               children: [
                 const SizedBox(width: 6),
-                _CircleIconButton(
+                _CircleButton(
                   icon: Icons.remove,
-                  onTap: onRemove,
+                  onTap: () => onChange((value - 1).clamp(0, 9999)),
                 ),
-                const SizedBox(width: 4),
                 Expanded(
-                  child: TextField(
-                    controller: controller,
-                    onChanged: onChange,
-                    keyboardType: TextInputType.number,
+                  child: Text(
+                    value.toString(),
                     textAlign: TextAlign.center,
-                    decoration: const InputDecoration(
-                      border: InputBorder.none,
-                      isCollapsed: true,
-                      contentPadding: EdgeInsets.symmetric(vertical: 14),
-                    ),
                     style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 20,
                       color: isDark
                           ? AppColors.darkTextPrimary
                           : AppColors.deepGreen,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
                   decoration: BoxDecoration(
                     color: isDark ? AppColors.darkPill : AppColors.surfaceMuted,
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(18),
                   ),
                   child: const Text(
                     'Units',
@@ -816,11 +813,10 @@ class _QuantityField extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(width: 4),
-                _CircleIconButton(
+                _CircleButton(
                   icon: Icons.add,
-                  onTap: onAdd,
                   fill: true,
+                  onTap: () => onChange((value + 1).clamp(0, 9999)),
                 ),
                 const SizedBox(width: 6),
               ],
@@ -858,7 +854,6 @@ class _QuantityField extends StatelessWidget {
 class _InlineRow extends StatelessWidget {
   final Widget left;
   final Widget right;
-
   const _InlineRow({required this.left, required this.right});
 
   @override
@@ -879,22 +874,20 @@ class _InlineRow extends StatelessWidget {
 class _ChipField extends StatelessWidget {
   final String label;
   final String value;
-  final IconData leading;
+  final IconData icon;
   final bool locked;
-
+  final String? caption;
   const _ChipField({
     required this.label,
     required this.value,
-    required this.leading,
+    required this.icon,
     this.locked = false,
+    this.caption,
   });
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final borderColor =
-        isDark ? AppColors.borderSubtle.withOpacity(0.3) : AppColors.borderSoft;
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -908,127 +901,137 @@ class _ChipField extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Container(
-          height: 52,
+          height: 54,
           decoration: BoxDecoration(
-            color: isDark ? AppColors.darkSurface : AppColors.background,
+            color: isDark ? AppColors.darkSurface : Colors.white,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: borderColor),
+            border: Border.all(
+              color: isDark
+                  ? AppColors.borderSubtle.withOpacity(0.3)
+                  : AppColors.borderSoft,
+            ),
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Row(
             children: [
-              Icon(leading, color: AppColors.textMuted),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  value,
-                  style: TextStyle(
-                    color: isDark
-                        ? AppColors.darkTextPrimary
-                        : AppColors.deepGreen,
-                    fontWeight: FontWeight.w700,
-                  ),
+              Icon(icon, size: 18, color: AppColors.textMuted),
+              const SizedBox(width: 10),
+              Text(
+                value,
+                style: TextStyle(
+                  color: isDark
+                      ? AppColors.darkTextPrimary
+                      : AppColors.deepGreen,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
+              const Spacer(),
               if (locked)
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: isDark
-                        ? AppColors.darkPill
-                        : AppColors.surfaceMuted,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Text(
-                    'Manager only',
-                    style: TextStyle(
-                      color: AppColors.textMuted,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
+                const Icon(
+                  Icons.lock_outline,
+                  size: 16,
+                  color: AppColors.textMuted,
                 ),
             ],
+          ),
+        ),
+        if (caption != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Text(
+              caption!,
+              style: const TextStyle(
+                color: AppColors.textMuted,
+                fontWeight: FontWeight.w700,
+                fontSize: 11,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _NotesField extends StatelessWidget {
+  final TextEditingController controller;
+  final ValueChanged<String>? onChanged;
+  final bool enabled;
+
+  const _NotesField({
+    required this.controller,
+    this.onChanged,
+    this.enabled = true,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Notes / Reason',
+          style: TextStyle(
+            color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+            fontWeight: FontWeight.w700,
+            fontSize: 12,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.darkSurface : Colors.white,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: isDark
+                  ? AppColors.borderSubtle.withOpacity(0.3)
+                  : AppColors.borderSoft,
+            ),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: ValueListenableBuilder<TextEditingValue>(
+            valueListenable: controller,
+            builder: (_, value, __) {
+              return Column(
+                children: [
+                  TextField(
+                    controller: controller,
+                    onChanged: onChanged,
+                    enabled: enabled,
+                    maxLines: 5,
+                    maxLength: 250,
+                    decoration: const InputDecoration(
+                      border: InputBorder.none,
+                      counterText: '',
+                      hintText: 'Describe the reason for stock adjustment...',
+                    ),
+                  ),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: Text(
+                      '${value.text.length}/250',
+                      style: TextStyle(
+                        color: isDark
+                            ? AppColors.darkTextMuted
+                            : AppColors.textMuted,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
         ),
       ],
     );
   }
 }
-class _NotesField extends StatelessWidget {
-  final TextEditingController controller;
-  const _NotesField({required this.controller});
 
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Notes / Reason',
-            style: TextStyle(
-              color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
-              fontWeight: FontWeight.w700,
-              fontSize: 12,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Container(
-            decoration: BoxDecoration(
-              color: isDark ? AppColors.darkSurface : AppColors.background,
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(
-                color: isDark
-                    ? AppColors.borderSubtle.withOpacity(0.3)
-                    : AppColors.borderSoft,
-              ),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                TextField(
-                  controller: controller,
-                  maxLines: 4,
-                  maxLength: 250,
-                  decoration: const InputDecoration(
-                    hintText: 'Describe the reason for stock adjustment...',
-                    border: InputBorder.none,
-                    isCollapsed: true,
-                    counterText: '',
-                  ),
-                ),
-                ValueListenableBuilder<TextEditingValue>(
-                  valueListenable: controller,
-                  builder: (context, value, _) {
-                    return Text(
-                      '${value.text.length}/250',
-                      style: TextStyle(
-                        color: isDark
-                            ? AppColors.darkTextMuted
-                            : AppColors.textMuted,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    );
-                  },
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _RecentMovementsLink extends StatelessWidget {
+class _RecentMovements extends StatelessWidget {
   final VoidCallback onTap;
-  const _RecentMovementsLink({required this.onTap});
+  const _RecentMovements({required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -1037,18 +1040,20 @@ class _RecentMovementsLink extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(14),
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12),
+        padding: const EdgeInsets.symmetric(vertical: 10),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.history,
-                color: isDark ? AppColors.darkTextMuted : AppColors.textMuted),
+            Icon(
+              Icons.history,
+              size: 18,
+              color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+            ),
             const SizedBox(width: 8),
             Text(
               'View Recent Movements',
               style: TextStyle(
-                color:
-                    isDark ? AppColors.darkTextMuted : AppColors.deepGreen,
+                color: isDark ? AppColors.darkTextMuted : AppColors.deepGreen,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -1059,98 +1064,16 @@ class _RecentMovementsLink extends StatelessWidget {
   }
 }
 
-class _InfoPill extends StatelessWidget {
-  final IconData icon;
-  final String text;
-  final Color background;
-
-  const _InfoPill({
-    required this.icon,
-    required this.text,
-    required this.background,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 14,
-            backgroundColor: isDark
-                ? AppColors.darkSurface
-                : Colors.white.withOpacity(0.8),
-            child: Icon(icon, size: 16, color: AppColors.deepGreen),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              text,
-              style: TextStyle(
-                color:
-                    isDark ? AppColors.darkTextPrimary : AppColors.deepGreen,
-                fontWeight: FontWeight.w700,
-                fontSize: 13,
-              ),
-            ),
-          ),
-          const Icon(Icons.chevron_right, color: AppColors.textMuted),
-        ],
-      ),
-    );
-  }
-}
-
-class _CircleIconButton extends StatelessWidget {
-  final IconData icon;
-  final VoidCallback onTap;
-  final bool fill;
-
-  const _CircleIconButton({
-    required this.icon,
-    required this.onTap,
-    this.fill = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      customBorder: const CircleBorder(),
-      child: Container(
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: fill ? AppColors.mango : Colors.transparent,
-          border: fill
-              ? null
-              : Border.all(color: AppColors.borderSoft, width: 1.1),
-        ),
-        padding: const EdgeInsets.all(10),
-        child: Icon(
-          icon,
-          size: 18,
-          color: fill ? Colors.white : AppColors.deepGreen,
-        ),
-      ),
-    );
-  }
-}
-
-class _FooterActions extends StatelessWidget {
+class _Footer extends StatelessWidget {
   final bool enabled;
+  final bool isLoading;
   final VoidCallback onCancel;
   final VoidCallback onSave;
-
-  const _FooterActions({
+  const _Footer({
     required this.enabled,
     required this.onCancel,
     required this.onSave,
+    this.isLoading = false,
   });
 
   @override
@@ -1162,7 +1085,7 @@ class _FooterActions extends StatelessWidget {
             onPressed: onCancel,
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 14),
-              side: const BorderSide(color: AppColors.borderSoft),
+              side: const BorderSide(color: Color(0xFFDDDBD7)),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(18),
               ),
@@ -1179,14 +1102,15 @@ class _FooterActions extends StatelessWidget {
         const SizedBox(width: 12),
         Expanded(
           child: ElevatedButton(
-            onPressed: enabled ? onSave : null,
+            onPressed: (enabled && !isLoading) ? onSave : null,
             style: ElevatedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 14),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(18),
               ),
-              backgroundColor:
-                  enabled ? AppColors.mango : AppColors.borderSubtle,
+              backgroundColor: enabled
+                  ? AppColors.mango
+                  : const Color(0xFFC7C6C5),
               foregroundColor: Colors.white,
               elevation: enabled ? 3 : 0,
             ),
@@ -1208,3 +1132,85 @@ class _FooterActions extends StatelessWidget {
   }
 }
 
+class _InfoPill extends StatelessWidget {
+  final IconData icon;
+  final String text;
+  final Color background;
+  final Color? iconColor;
+  const _InfoPill({
+    required this.icon,
+    required this.text,
+    required this.background,
+    this.iconColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 14,
+            backgroundColor: isDark
+                ? AppColors.darkSurface
+                : Colors.white.withOpacity(0.85),
+            child: Icon(
+              icon,
+              size: 16,
+              color: iconColor ?? AppColors.deepGreen,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                color: isDark ? AppColors.darkTextPrimary : AppColors.deepGreen,
+                fontWeight: FontWeight.w700,
+                fontSize: 13,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CircleButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+  final bool fill;
+  const _CircleButton({
+    required this.icon,
+    required this.onTap,
+    this.fill = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(999),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: fill ? AppColors.mango : Colors.transparent,
+          border: fill ? null : Border.all(color: AppColors.borderSoft),
+        ),
+        child: Icon(
+          icon,
+          color: fill ? Colors.white : AppColors.deepGreen,
+          size: 18,
+        ),
+      ),
+    );
+  }
+}

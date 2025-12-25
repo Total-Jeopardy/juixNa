@@ -1,38 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:juix_na/app/app_colors.dart';
-
-class StockItem {
-  final String id;
-  final String name;
-  final String code;
-  final String location;
-  final String reorderNote;
-  final String unit;
-  final int open;
-  final int inCount;
-  final int outCount;
-  final int close;
-  final String totalValue;
-  final String tag;
-
-  const StockItem({
-    required this.id,
-    required this.name,
-    required this.code,
-    required this.location,
-    required this.reorderNote,
-    required this.unit,
-    required this.open,
-    required this.inCount,
-    required this.outCount,
-    required this.close,
-    required this.totalValue,
-    required this.tag,
-  });
-}
+import 'package:juix_na/features/inventory/model/inventory_models.dart';
 
 class InventoryStockCard extends StatelessWidget {
-  final StockItem item;
+  final InventoryItem item;
   final bool isSelected;
   final VoidCallback onTap;
 
@@ -119,7 +90,7 @@ class InventoryStockCard extends StatelessWidget {
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Text(
-                                  item.tag,
+                                  item.kind.name.toUpperCase(),
                                   style: const TextStyle(
                                     color: AppColors.mango,
                                     fontWeight: FontWeight.w700,
@@ -133,7 +104,7 @@ class InventoryStockCard extends StatelessWidget {
                           Row(
                             children: [
                               Text(
-                                item.code,
+                                item.sku,
                                 style: TextStyle(
                                   color: isDark
                                       ? AppColors.darkTextMuted
@@ -142,31 +113,33 @@ class InventoryStockCard extends StatelessWidget {
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
-                              const SizedBox(width: 12),
-                              Icon(
-                                Icons.chair,
-                                size: 14,
-                                color: isDark
-                                    ? AppColors.darkTextMuted
-                                    : AppColors.textMuted,
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                item.location,
-                                style: TextStyle(
+                              if (item.locations != null && item.locations!.isNotEmpty) ...[
+                                const SizedBox(width: 12),
+                                Icon(
+                                  Icons.location_on,
+                                  size: 14,
                                   color: isDark
                                       ? AppColors.darkTextMuted
                                       : AppColors.textMuted,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
                                 ),
-                              ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  item.locations!.first.locationName,
+                                  style: TextStyle(
+                                    color: isDark
+                                        ? AppColors.darkTextMuted
+                                        : AppColors.textMuted,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
                           const SizedBox(height: 6),
-                          if (item.reorderNote.isNotEmpty)
+                          if (item.isLowStock == true)
                             Text(
-                              item.reorderNote,
+                              'LOW STOCK',
                               style: const TextStyle(
                                 color: AppColors.error,
                                 fontWeight: FontWeight.w700,
@@ -192,28 +165,39 @@ class InventoryStockCard extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
                       _MetricColumn(
-                        label: 'OPEN',
-                        value: '${item.open}',
+                        label: 'TOTAL',
+                        value: (item.totalQuantity ?? item.currentStock ?? 0.0)
+                            .toStringAsFixed(0),
                         unit: item.unit,
                         color: theme.colorScheme.onSurface,
                       ),
+                      if (item.locations != null && item.locations!.length > 1)
+                        _MetricColumn(
+                          label: 'LOCATIONS',
+                          value: '${item.locations!.length}',
+                          unit: '',
+                          color: AppColors.mango,
+                        )
+                      else
+                        _MetricColumn(
+                          label: 'STOCK',
+                          value: (item.currentStock ?? item.totalQuantity ?? 0.0)
+                              .toStringAsFixed(0),
+                          unit: item.unit,
+                          color: AppColors.success,
+                        ),
                       _MetricColumn(
-                        label: 'IN',
-                        value: item.inCount == 0
-                            ? '-'
-                            : '${item.inCount > 0 ? '+' : ''}${item.inCount}',
-                        unit: item.inCount == 0 ? '' : item.unit,
-                        color: AppColors.success,
+                        label: 'STATUS',
+                        value: item.isLowStock == true ? 'LOW' : 'OK',
+                        unit: '',
+                        color: item.isLowStock == true
+                            ? AppColors.error
+                            : AppColors.success,
                       ),
                       _MetricColumn(
-                        label: 'OUT',
-                        value: item.outCount == 0 ? '-' : '${item.outCount}',
-                        unit: item.outCount == 0 ? '' : item.unit,
-                        color: AppColors.error,
-                      ),
-                      _MetricColumn(
-                        label: 'CLOSE',
-                        value: '${item.close}',
+                        label: 'QUANTITY',
+                        value: (item.totalQuantity ?? item.currentStock ?? 0.0)
+                            .toStringAsFixed(0),
                         unit: item.unit,
                         color: AppColors.mango,
                         highlight: true,
@@ -232,13 +216,23 @@ class InventoryStockCard extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'Total Value: ${item.totalValue}',
+                      'SKU: ${item.sku}',
                       style: TextStyle(
                         color: theme.colorScheme.onSurface,
                         fontWeight: FontWeight.w700,
                         fontSize: 14,
                       ),
                     ),
+                    if (item.locations != null && item.locations!.length > 1)
+                      Text(
+                        '${item.locations!.length} locations',
+                        style: TextStyle(
+                          color: isDark
+                              ? AppColors.darkTextMuted
+                              : AppColors.textMuted,
+                          fontSize: 12,
+                        ),
+                      ),
                     Icon(
                       Icons.more_horiz,
                       color:
