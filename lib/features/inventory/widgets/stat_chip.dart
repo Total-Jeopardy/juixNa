@@ -29,15 +29,15 @@ class StatChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final bg = background ??
-        (isDark ? AppColors.darkPill : AppColors.surface);
+    final bg = background ?? (isDark ? AppColors.darkPill : AppColors.surface);
 
-    final tColor = titleColor ??
-        (isDark ? AppColors.darkTextMuted : AppColors.textMuted);
-    final vColor = valueColor ??
+    final tColor =
+        titleColor ?? (isDark ? AppColors.darkTextMuted : AppColors.textMuted);
+    final vColor =
+        valueColor ??
         (isDark ? AppColors.darkTextPrimary : AppColors.deepGreen);
-    final sColor = suffixColor ??
-        (isDark ? AppColors.mangoLight : AppColors.mango);
+    final sColor =
+        suffixColor ?? (isDark ? AppColors.mangoLight : AppColors.mango);
 
     return DecoratedBox(
       decoration: BoxDecoration(

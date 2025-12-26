@@ -75,16 +75,16 @@ class TransferHistoryState {
       selectedLocationId: clearSelectedLocation
           ? null
           : (selectedLocationId ?? this.selectedLocationId),
-      selectedItemId:
-          clearSelectedItem ? null : (selectedItemId ?? this.selectedItemId),
+      selectedItemId: clearSelectedItem
+          ? null
+          : (selectedItemId ?? this.selectedItemId),
       statusFilter: clearStatusFilter
           ? null
           : (statusFilter ?? this.statusFilter),
       isLoading: isLoading ?? this.isLoading,
       isLoadingLocations: isLoadingLocations ?? this.isLoadingLocations,
       error: clearError ? null : (error ?? this.error),
-      pagination:
-          clearPagination ? null : (pagination ?? this.pagination),
+      pagination: clearPagination ? null : (pagination ?? this.pagination),
     );
   }
 
@@ -121,5 +121,3 @@ class TransferHistoryState {
         ')';
   }
 }
-
-

@@ -10,19 +10,19 @@ class AuthApi {
   AuthApi({required ApiClient apiClient}) : _apiClient = apiClient;
 
   /// Login with email and password.
-  /// 
+  ///
   /// Endpoint: POST /api/auth/login
-  /// 
+  ///
   /// Backend expects OAuth2 format (form-encoded data):
   /// - username: (email value)
   /// - password: (password value)
-  /// 
+  ///
   /// Note: FastAPI OAuth2PasswordRequestForm uses 'username' field,
   /// even though we authenticate with email. The backend will look up
   /// the user by email using the username field value.
-  /// 
+  ///
   /// Response: { "access_token": "...", "token_type": "bearer", "user": {...} }
-  /// 
+  ///
   /// Returns ApiResult<LoginResponseDTO>:
   /// - Success: LoginResponseDTO with token and user data
   /// - Failure: ApiError with message and type (unauthorized, validation, etc.)
@@ -63,4 +63,3 @@ class AuthApi {
     return result;
   }
 }
-

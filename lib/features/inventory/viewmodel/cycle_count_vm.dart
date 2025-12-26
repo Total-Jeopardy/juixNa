@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:juix_na/core/auth/auth_error_handler.dart';
 import 'package:juix_na/core/network/api_result.dart';
 import 'package:juix_na/features/inventory/data/inventory_repository.dart';
 import 'package:juix_na/features/inventory/model/inventory_models.dart';
@@ -12,7 +13,7 @@ class CycleCountViewModel extends AsyncNotifier<CycleCountState> {
 
   /// Request token to track in-flight requests and ignore stale responses.
   /// Format: "itemId_locationId" or null if no request in flight.
-  /// 
+  ///
   /// Prevents race condition: if user switches item/location while a system-quantity
   /// load is in-flight, the stale response will be ignored and won't overwrite
   /// the current selection. This eliminates flicker and ensures data consistency.
@@ -36,6 +37,9 @@ class CycleCountViewModel extends AsyncNotifier<CycleCountState> {
     try {
       final result = await _inventoryRepository.getLocations();
 
+      // Handle 401 errors (auto-logout)
+      await AuthErrorHandler.handleUnauthorized(ref, result);
+
       if (result.isSuccess) {
         final success = result as ApiSuccess<List<Location>>;
         final locations = success.data;
@@ -45,9 +49,7 @@ class CycleCountViewModel extends AsyncNotifier<CycleCountState> {
         );
       } else {
         final failure = result as ApiFailure<List<Location>>;
-        return CycleCountState.initial().copyWith(
-          error: failure.error.message,
-        );
+        return CycleCountState.initial().copyWith(error: failure.error.message);
       }
     } catch (e) {
       return CycleCountState.initial().copyWith(
@@ -74,6 +76,9 @@ class CycleCountViewModel extends AsyncNotifier<CycleCountState> {
         // Load items across all locations
         result = await _inventoryRepository.getInventoryItems();
       }
+
+      // Handle 401 errors (auto-logout)
+      await AuthErrorHandler.handleUnauthorized(ref, result);
 
       if (result.isSuccess) {
         List<InventoryItem> items;
@@ -117,7 +122,7 @@ class CycleCountViewModel extends AsyncNotifier<CycleCountState> {
   /// Get system quantity for selected item and location.
   /// This is what the system thinks is currently in stock.
   /// Preserves existing state on error.
-  /// 
+  ///
   /// Uses request token to prevent stale responses: if item/location changes
   /// while a request is in-flight, the stale response will be ignored.
   Future<void> getSystemQuantity({
@@ -125,11 +130,11 @@ class CycleCountViewModel extends AsyncNotifier<CycleCountState> {
     required int locationId,
   }) async {
     final currentState = state.value ?? CycleCountState.initial();
-    
+
     // Create request token for this specific item+location combination
     final requestToken = '${itemId}_$locationId';
     _currentSystemQuantityRequestToken = requestToken;
-    
+
     state = AsyncValue.data(
       currentState.copyWith(isLoadingSystemQuantity: true),
     );
@@ -138,6 +143,9 @@ class CycleCountViewModel extends AsyncNotifier<CycleCountState> {
       final result = await _inventoryRepository.getLocationItems(
         locationId: locationId,
       );
+
+      // Handle 401 errors (auto-logout)
+      await AuthErrorHandler.handleUnauthorized(ref, result);
 
       // Check if this response is still valid (item/location hasn't changed)
       if (_currentSystemQuantityRequestToken != requestToken) {
@@ -165,7 +173,7 @@ class CycleCountViewModel extends AsyncNotifier<CycleCountState> {
           ),
         );
 
-        // Get system quantity from database: prefer currentStock (location-specific) 
+        // Get system quantity from database: prefer currentStock (location-specific)
         // over totalQuantity (all locations), default to 0.0 if both are null
         final systemQuantity = item.currentStock ?? item.totalQuantity ?? 0.0;
 
@@ -257,25 +265,19 @@ class CycleCountViewModel extends AsyncNotifier<CycleCountState> {
   /// Update date.
   void setDate(DateTime date) {
     final currentState = state.value ?? CycleCountState.initial();
-    state = AsyncValue.data(
-      currentState.copyWith(date: date),
-    );
+    state = AsyncValue.data(currentState.copyWith(date: date));
   }
 
   /// Update counted quantity.
   void setCountedQuantity(double? quantity) {
     final currentState = state.value ?? CycleCountState.initial();
-    state = AsyncValue.data(
-      currentState.copyWith(countedQuantity: quantity),
-    );
+    state = AsyncValue.data(currentState.copyWith(countedQuantity: quantity));
   }
 
   /// Update note.
   void setNote(String? note) {
     final currentState = state.value ?? CycleCountState.initial();
-    state = AsyncValue.data(
-      currentState.copyWith(note: note),
-    );
+    state = AsyncValue.data(currentState.copyWith(note: note));
   }
 
   /// Create/save cycle count (records the count without adjusting stock).
@@ -300,11 +302,7 @@ class CycleCountViewModel extends AsyncNotifier<CycleCountState> {
         fieldErrors['countedQuantity'] = 'Counted quantity is required';
       }
 
-      state = AsyncValue.data(
-        currentState.copyWith(
-          fieldErrors: fieldErrors,
-        ),
-      );
+      state = AsyncValue.data(currentState.copyWith(fieldErrors: fieldErrors));
       return false;
     }
 
@@ -316,7 +314,7 @@ class CycleCountViewModel extends AsyncNotifier<CycleCountState> {
   /// Adjust stock based on cycle count variance.
   /// Calculates variance (counted - system) and applies it as an adjustment.
   /// Preserves existing state on error.
-  /// 
+  ///
   /// Note on persistence: On successful adjustment, the form is reset to initial
   /// state (clears selected item, location, quantities) but keeps loaded
   /// locations/items for faster subsequent selections. This is the expected
@@ -339,13 +337,15 @@ class CycleCountViewModel extends AsyncNotifier<CycleCountState> {
     }
 
     // Calculate variance (counted - system)
-    final variance = currentState.countedQuantity! - currentState.systemQuantity!;
+    final variance =
+        currentState.countedQuantity! - currentState.systemQuantity!;
 
     // If no variance, no adjustment needed
     if (variance == 0.0) {
       state = AsyncValue.data(
         currentState.copyWith(
-          error: 'No variance detected. Counted quantity matches system quantity.',
+          error:
+              'No variance detected. Counted quantity matches system quantity.',
         ),
       );
       return false;
@@ -360,12 +360,18 @@ class CycleCountViewModel extends AsyncNotifier<CycleCountState> {
       final result = await _inventoryRepository.adjustStock(
         itemId: currentState.selectedItem!.id,
         locationId: currentState.selectedLocationId!,
-        quantity: variance.toStringAsFixed(3), // API expects string with 3 decimals
+        quantity: variance.toStringAsFixed(
+          3,
+        ), // API expects string with 3 decimals
         reason: 'CYCLE_COUNT',
         reference: 'CC-${DateTime.now().millisecondsSinceEpoch}',
-        note: currentState.note ??
+        note:
+            currentState.note ??
             'Cycle count adjustment: System=${currentState.systemQuantity}, Counted=${currentState.countedQuantity}',
       );
+
+      // Handle 401 errors (auto-logout)
+      await AuthErrorHandler.handleUnauthorized(ref, result);
 
       if (result.isSuccess) {
         // Success - reset form to initial state but keep locations/items
@@ -401,15 +407,12 @@ class CycleCountViewModel extends AsyncNotifier<CycleCountState> {
   void clearError() {
     final currentState = state.value ?? CycleCountState.initial();
     state = AsyncValue.data(
-      currentState.copyWith(
-        clearError: true,
-        clearFieldErrors: true,
-      ),
+      currentState.copyWith(clearError: true, clearFieldErrors: true),
     );
   }
 
   /// Reset form to initial state (keeps loaded locations/items).
-  /// 
+  ///
   /// Note: After successful stock adjustment, the form is reset to allow
   /// starting a new cycle count. This is the expected behavior for v1.
   /// If persistence of last selection is needed in the future, we can
@@ -427,14 +430,11 @@ class CycleCountViewModel extends AsyncNotifier<CycleCountState> {
 
 /// Riverpod provider for CycleCountViewModel.
 final cycleCountProvider =
-    AsyncNotifierProvider<CycleCountViewModel, CycleCountState>(
-  () {
-    return CycleCountViewModel();
-  },
-);
+    AsyncNotifierProvider<CycleCountViewModel, CycleCountState>(() {
+      return CycleCountViewModel();
+    });
 
 /// Extension to get first element or null from list (generic).
 extension InventoryItemListExtension on List<InventoryItem> {
   InventoryItem? get firstOrNull => isEmpty ? null : first;
 }
-

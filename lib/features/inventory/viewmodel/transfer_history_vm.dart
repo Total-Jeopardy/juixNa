@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:juix_na/core/auth/auth_error_handler.dart';
 import 'package:juix_na/core/network/api_result.dart';
 import 'package:juix_na/features/inventory/data/inventory_repository.dart';
 import 'package:juix_na/features/inventory/model/inventory_models.dart';
@@ -33,6 +34,10 @@ class TransferHistoryViewModel extends AsyncNotifier<TransferHistoryState> {
     try {
       // Load locations and set up default date range (this week)
       final locationsResult = await _inventoryRepository.getLocations();
+
+      // Handle 401 errors (auto-logout)
+      await AuthErrorHandler.handleUnauthorized(ref, locationsResult);
+
       List<Location> locations = [];
       if (locationsResult.isSuccess) {
         locations = (locationsResult as ApiSuccess<List<Location>>).data;
@@ -41,7 +46,11 @@ class TransferHistoryViewModel extends AsyncNotifier<TransferHistoryState> {
       // Set up default date range (this week)
       final now = DateTime.now();
       final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
-      final fromDate = DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day);
+      final fromDate = DateTime(
+        startOfWeek.year,
+        startOfWeek.month,
+        startOfWeek.day,
+      );
 
       // Load transfers with default date range
       await loadTransfers(fromDate: fromDate);
@@ -99,6 +108,9 @@ class TransferHistoryViewModel extends AsyncNotifier<TransferHistoryState> {
         limit: 100, // Load up to 100 transfers
       );
 
+      // Handle 401 errors (auto-logout)
+      await AuthErrorHandler.handleUnauthorized(ref, result);
+
       if (result.isSuccess) {
         final success = result as ApiSuccess<StockMovementsResponse>;
         final movements = success.data.movements;
@@ -116,14 +128,11 @@ class TransferHistoryViewModel extends AsyncNotifier<TransferHistoryState> {
             clearError: true,
           ),
         );
-        } else {
+      } else {
         final failure = result as ApiFailure<StockMovementsResponse>;
         // Preserve existing transfers on error
         state = AsyncValue.data(
-          currentState.copyWith(
-            error: failure.error.message,
-            isLoading: false,
-          ),
+          currentState.copyWith(error: failure.error.message, isLoading: false),
         );
       }
     } catch (e) {
@@ -138,10 +147,7 @@ class TransferHistoryViewModel extends AsyncNotifier<TransferHistoryState> {
   }
 
   /// Set date range filter.
-  Future<void> setDateRange({
-    DateTime? fromDate,
-    DateTime? toDate,
-  }) async {
+  Future<void> setDateRange({DateTime? fromDate, DateTime? toDate}) async {
     await loadTransfers(
       fromDate: fromDate,
       toDate: toDate,
@@ -209,17 +215,12 @@ class TransferHistoryViewModel extends AsyncNotifier<TransferHistoryState> {
   /// Clear error state.
   void clearError() {
     final currentState = state.value ?? TransferHistoryState.initial();
-    state = AsyncValue.data(
-      currentState.copyWith(clearError: true),
-    );
+    state = AsyncValue.data(currentState.copyWith(clearError: true));
   }
 }
 
 /// Riverpod provider for TransferHistoryViewModel.
 final transferHistoryProvider =
-    AsyncNotifierProvider<TransferHistoryViewModel, TransferHistoryState>(
-  () {
-    return TransferHistoryViewModel();
-  },
-);
-
+    AsyncNotifierProvider<TransferHistoryViewModel, TransferHistoryState>(() {
+      return TransferHistoryViewModel();
+    });

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:juix_na/app/app_colors.dart';
+import 'package:juix_na/core/utils/error_display.dart';
 import 'package:juix_na/features/inventory/model/inventory_models.dart';
 import 'package:juix_na/features/inventory/viewmodel/inventory_overview_vm.dart';
 import 'package:juix_na/features/inventory/viewmodel/reorder_alerts_state.dart';
@@ -75,11 +77,10 @@ class _ReorderAlertsScreenState extends ConsumerState<ReorderAlertsScreen> {
                   _MarkAllAsReadLink(
                     onPressed: () {
                       viewModel.dismissAlerts(state.alerts);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('All alerts marked as read'),
-                          duration: Duration(seconds: 2),
-                        ),
+                      ErrorDisplay.showSuccess(
+                        context,
+                        'All alerts marked as read',
+                        duration: const Duration(seconds: 2),
                       );
                     },
                   ),
@@ -92,11 +93,10 @@ class _ReorderAlertsScreenState extends ConsumerState<ReorderAlertsScreen> {
                     activeFilter: _activeFilter,
                     onDismiss: (alert) {
                       viewModel.dismissAlert(alert);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('${alert.item.name} dismissed'),
-                          duration: const Duration(seconds: 2),
-                        ),
+                      ErrorDisplay.showSuccess(
+                        context,
+                        '${alert.item.name} dismissed',
+                        duration: const Duration(seconds: 2),
                       );
                     },
                   ),
@@ -768,22 +768,18 @@ class _AlertList extends StatelessWidget {
           ReorderAlertCard(
             alert: alert,
             onCreateRequest: () {
-              // TODO: Navigate to create request screen
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Create request for ${alert.item.name}'),
-                  duration: const Duration(seconds: 2),
-                ),
+              // Note: Procurement module not yet implemented
+              // For now, show snackbar - will be implemented when procurement module is added
+              ErrorDisplay.showSuccess(
+                context,
+                'Create request for ${alert.item.name}',
+                duration: const Duration(seconds: 2),
               );
             },
             onViewProduct: () {
-              // TODO: Navigate to product details
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('View ${alert.item.name} details'),
-                  duration: const Duration(seconds: 2),
-                ),
-              );
+              // Navigate to inventory overview (product details screen not yet implemented)
+              // Could filter by item in the future when product details screen is added
+              context.push('/inventory');
             },
             onDismiss: () => onDismiss(alert),
           ),

@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:juix_na/core/auth/auth_error_handler.dart';
 import 'package:juix_na/core/network/api_result.dart';
 import 'package:juix_na/features/inventory/data/inventory_repository.dart';
 import 'package:juix_na/features/inventory/model/inventory_models.dart';
@@ -24,12 +25,12 @@ class ReorderAlertsViewModel extends AsyncNotifier<ReorderAlertsState> {
 
   /// Load reorder alerts from inventory overview.
   /// Uses the overview endpoint which includes low_stock_items and out_of_stock_items.
-  /// 
+  ///
   /// - If [locationId] is null: loads alerts for all locations (global view)
   /// - If [locationId] is set: loads alerts for that specific location only
-  /// 
+  ///
   /// Preserves existing state on error.
-  /// 
+  ///
   /// Note: For v1, overlapping calls may overwrite each other. Future enhancement:
   /// consider adding a request token/guard to ignore stale responses.
   Future<ReorderAlertsState> loadReorderAlerts({int? locationId}) async {
@@ -40,6 +41,9 @@ class ReorderAlertsViewModel extends AsyncNotifier<ReorderAlertsState> {
       final result = await _inventoryRepository.getInventoryOverview(
         locationId: locationId,
       );
+
+      // Handle 401 errors (auto-logout)
+      await AuthErrorHandler.handleUnauthorized(ref, result);
 
       if (result.isSuccess) {
         final success = result as ApiSuccess<InventoryOverview>;
@@ -97,10 +101,7 @@ class ReorderAlertsViewModel extends AsyncNotifier<ReorderAlertsState> {
         final failure = result as ApiFailure<InventoryOverview>;
         // Preserve existing alerts on error
         state = AsyncValue.data(
-          currentState.copyWith(
-            error: failure.error.message,
-            isLoading: false,
-          ),
+          currentState.copyWith(error: failure.error.message, isLoading: false),
         );
       }
     } catch (e) {
@@ -117,10 +118,10 @@ class ReorderAlertsViewModel extends AsyncNotifier<ReorderAlertsState> {
   }
 
   /// Filter alerts by location.
-  /// 
+  ///
   /// - If [locationId] is null: shows alerts for all locations (global view)
   /// - If [locationId] is set: shows alerts for that specific location only
-  /// 
+  ///
   /// Note: When filtering by location, only alerts for that location are shown.
   /// Critical alerts from other locations are not included in the filtered view.
   /// To see all alerts including critical ones from all locations, use null (all locations).
@@ -135,10 +136,10 @@ class ReorderAlertsViewModel extends AsyncNotifier<ReorderAlertsState> {
   }
 
   /// Dismiss an alert (removes it from the list).
-  /// 
+  ///
   /// Note: This is a local operation. In a real system, you might want to
   /// mark it as dismissed on the backend to prevent it from showing again.
-  /// 
+  ///
   /// When dismissing in a location-filtered view, the alert is removed from
   /// the current filtered list. If viewing all locations, the alert is removed
   /// from the global list. To see the alert again, refresh the alerts.
@@ -148,9 +149,7 @@ class ReorderAlertsViewModel extends AsyncNotifier<ReorderAlertsState> {
         .where((a) => a.item.id != alert.item.id)
         .toList();
 
-    state = AsyncValue.data(
-      currentState.copyWith(alerts: updatedAlerts),
-    );
+    state = AsyncValue.data(currentState.copyWith(alerts: updatedAlerts));
   }
 
   /// Dismiss multiple alerts.
@@ -161,17 +160,13 @@ class ReorderAlertsViewModel extends AsyncNotifier<ReorderAlertsState> {
         .where((a) => !alertIds.contains(a.item.id))
         .toList();
 
-    state = AsyncValue.data(
-      currentState.copyWith(alerts: updatedAlerts),
-    );
+    state = AsyncValue.data(currentState.copyWith(alerts: updatedAlerts));
   }
 
   /// Clear error state.
   void clearError() {
     final currentState = state.value ?? ReorderAlertsState.initial();
-    state = AsyncValue.data(
-      currentState.copyWith(clearError: true),
-    );
+    state = AsyncValue.data(currentState.copyWith(clearError: true));
   }
 
   /// Refresh alerts (reload from API).
@@ -183,11 +178,9 @@ class ReorderAlertsViewModel extends AsyncNotifier<ReorderAlertsState> {
 
 /// Riverpod provider for ReorderAlertsViewModel.
 final reorderAlertsProvider =
-    AsyncNotifierProvider<ReorderAlertsViewModel, ReorderAlertsState>(
-  () {
-    return ReorderAlertsViewModel();
-  },
-);
+    AsyncNotifierProvider<ReorderAlertsViewModel, ReorderAlertsState>(() {
+      return ReorderAlertsViewModel();
+    });
 
 /// Derived provider for critical alerts (for easy access).
 final criticalAlertsProvider = Provider<List<ReorderAlert>>((ref) {
@@ -206,4 +199,3 @@ final reorderAlertsCountProvider = Provider<int>((ref) {
   final state = ref.watch(reorderAlertsProvider);
   return state.value?.totalCount ?? 0;
 });
-

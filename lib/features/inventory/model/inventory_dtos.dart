@@ -31,13 +31,13 @@ class LocationDTO {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'name': name,
-        'description': description,
-        'is_active': isActive,
-        'created_at': createdAt,
-        'updated_at': updatedAt,
-      };
+    'id': id,
+    'name': name,
+    'description': description,
+    'is_active': isActive,
+    'created_at': createdAt,
+    'updated_at': updatedAt,
+  };
 }
 
 /// Item location breakdown (stock at a specific location).
@@ -61,10 +61,10 @@ class ItemLocationDTO {
   }
 
   Map<String, dynamic> toJson() => {
-        'location_id': locationId,
-        'location_name': locationName,
-        'current_stock': currentStock,
-      };
+    'location_id': locationId,
+    'location_name': locationName,
+    'current_stock': currentStock,
+  };
 }
 
 /// Inventory item DTO (with location breakdowns).
@@ -112,17 +112,17 @@ class InventoryItemDTO {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'name': name,
-        'sku': sku,
-        'unit': unit,
-        'kind': kind,
-        if (totalQuantity != null) 'total_quantity': totalQuantity,
-        if (currentStock != null) 'current_stock': currentStock,
-        if (isLowStock != null) 'is_low_stock': isLowStock,
-        if (locations != null)
-          'locations': locations!.map((e) => e.toJson()).toList(),
-      };
+    'id': id,
+    'name': name,
+    'sku': sku,
+    'unit': unit,
+    'kind': kind,
+    if (totalQuantity != null) 'total_quantity': totalQuantity,
+    if (currentStock != null) 'current_stock': currentStock,
+    if (isLowStock != null) 'is_low_stock': isLowStock,
+    if (locations != null)
+      'locations': locations!.map((e) => e.toJson()).toList(),
+  };
 }
 
 /// Pagination info DTO.
@@ -155,13 +155,13 @@ class PaginationDTO {
   }
 
   Map<String, dynamic> toJson() => {
-        if (skip != 0) 'skip': skip,
-        if (limit != 0) 'limit': limit,
-        'total': total,
-        if (page != null) 'page': page,
-        if (pageSize != null) 'page_size': pageSize,
-        if (totalPages != null) 'total_pages': totalPages,
-      };
+    if (skip != 0) 'skip': skip,
+    if (limit != 0) 'limit': limit,
+    'total': total,
+    if (page != null) 'page': page,
+    if (pageSize != null) 'page_size': pageSize,
+    if (totalPages != null) 'total_pages': totalPages,
+  };
 }
 
 /// Response DTO for inventory items list (all locations).
@@ -208,9 +208,7 @@ class LocationItemsResponseDTO {
         .toList();
 
     return LocationItemsResponseDTO(
-      location: LocationDTO.fromJson(
-        json['location'] as Map<String, dynamic>,
-      ),
+      location: LocationDTO.fromJson(json['location'] as Map<String, dynamic>),
       items: items,
       pagination: PaginationDTO.fromJson(
         json['pagination'] as Map<String, dynamic>,
@@ -264,18 +262,18 @@ class StockMovementDTO {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'item_id': itemId,
-        'item_name': itemName,
-        'location_id': locationId,
-        'location_name': locationName,
-        'quantity': quantity,
-        'type': type,
-        'reason': reason,
-        if (reference != null) 'reference': reference,
-        'created_at': createdAt,
-        if (createdBy != null) 'created_by': createdBy,
-      };
+    'id': id,
+    'item_id': itemId,
+    'item_name': itemName,
+    'location_id': locationId,
+    'location_name': locationName,
+    'quantity': quantity,
+    'type': type,
+    'reason': reason,
+    if (reference != null) 'reference': reference,
+    'created_at': createdAt,
+    if (createdBy != null) 'created_by': createdBy,
+  };
 }
 
 /// Response DTO for stock movements list.
@@ -322,13 +320,13 @@ class StockTransferRequestDTO {
   });
 
   Map<String, dynamic> toJson() => {
-        'item_id': itemId,
-        'from_location_id': fromLocationId,
-        'to_location_id': toLocationId,
-        'quantity': quantity,
-        if (reference != null) 'reference': reference,
-        if (note != null) 'note': note,
-      };
+    'item_id': itemId,
+    'from_location_id': fromLocationId,
+    'to_location_id': toLocationId,
+    'quantity': quantity,
+    if (reference != null) 'reference': reference,
+    if (note != null) 'note': note,
+  };
 }
 
 /// Response DTO for stock transfer.
@@ -389,13 +387,13 @@ class StockAdjustmentRequestDTO {
   });
 
   Map<String, dynamic> toJson() => {
-        'item_id': itemId,
-        'location_id': locationId,
-        'quantity': quantity,
-        'reason': reason,
-        if (reference != null) 'reference': reference,
-        if (note != null) 'note': note,
-      };
+    'item_id': itemId,
+    'location_id': locationId,
+    'quantity': quantity,
+    'reason': reason,
+    if (reference != null) 'reference': reference,
+    if (note != null) 'note': note,
+  };
 }
 
 /// Response DTO for stock adjustment.
@@ -467,12 +465,12 @@ class InventoryOverviewKPIsDTO {
   }
 
   Map<String, dynamic> toJson() => {
-        'total_items': totalItems,
-        'total_skus': totalSkus,
-        'total_quantity_all_locations': totalQuantityAllLocations,
-        'low_stock_items': lowStockItems,
-        'out_of_stock_items': outOfStockItems,
-      };
+    'total_items': totalItems,
+    'total_skus': totalSkus,
+    'total_quantity_all_locations': totalQuantityAllLocations,
+    'low_stock_items': lowStockItems,
+    'out_of_stock_items': outOfStockItems,
+  };
 }
 
 /// Response DTO for inventory overview (KPIs + items + pagination).
@@ -497,11 +495,8 @@ class InventoryOverviewResponseDTO {
       kpis: InventoryOverviewKPIsDTO.fromJson(
         json['kpis'] as Map<String, dynamic>,
       ),
-      page: PaginationDTO.fromJson(
-        json['page'] as Map<String, dynamic>,
-      ),
+      page: PaginationDTO.fromJson(json['page'] as Map<String, dynamic>),
       items: items,
     );
   }
 }
-
