@@ -5,17 +5,14 @@ import 'package:juix_na/features/auth/viewmodel/auth_state.dart';
 import 'package:juix_na/features/auth/viewmodel/auth_vm.dart';
 
 /// Auth guard widget that shows appropriate screen based on authentication status.
-/// 
+///
 /// - If authenticated: shows [authenticatedChild]
 /// - If unauthenticated: shows [LoginScreen]
 /// - If loading: shows loading indicator
 class AuthGuard extends ConsumerWidget {
   final Widget authenticatedChild;
 
-  const AuthGuard({
-    super.key,
-    required this.authenticatedChild,
-  });
+  const AuthGuard({super.key, required this.authenticatedChild});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -29,11 +26,8 @@ class AuthGuard extends ConsumerWidget {
           return const LoginScreen();
         }
       },
-      loading: () => const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(),
-        ),
-      ),
+      loading: () =>
+          const Scaffold(body: Center(child: CircularProgressIndicator())),
       error: (error, stack) => Scaffold(
         body: Center(
           child: Column(
@@ -72,4 +66,3 @@ void requireAuthentication(WidgetRef ref) {
     throw Exception('User must be authenticated to perform this action');
   }
 }
-

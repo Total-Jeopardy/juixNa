@@ -116,7 +116,7 @@ class ApiClient {
     bool useFormData = false,
   }) async {
     final uri = _buildUri(path, query);
-    
+
     // Debug: Log the base URL and full URI for troubleshooting
     if (path.contains('/auth/login')) {
       print('🔵 Making request to:');
@@ -126,7 +126,10 @@ class ApiClient {
     }
 
     try {
-      final mergedHeaders = await _buildHeaders(extra: headers, useFormData: useFormData);
+      final mergedHeaders = await _buildHeaders(
+        extra: headers,
+        useFormData: useFormData,
+      );
 
       final http.Request request = http.Request(method, uri);
       request.headers.addAll(mergedHeaders);
@@ -144,7 +147,7 @@ class ApiClient {
             }
           });
           request.bodyFields = formData;
-          
+
           // Debug logging for login requests
           if (path.contains('/auth/login')) {
             print('🔵 Login Request (Form Data):');
@@ -157,7 +160,7 @@ class ApiClient {
         } else {
           // Default: JSON encoding
           request.body = jsonEncode(body);
-          
+
           // Debug logging for login requests
           if (path.contains('/auth/login')) {
             print('🔵 Login Request (JSON):');

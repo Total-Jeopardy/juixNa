@@ -113,7 +113,8 @@ class InventoryStockCard extends StatelessWidget {
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
-                              if (item.locations != null && item.locations!.isNotEmpty) ...[
+                              if (item.locations != null &&
+                                  item.locations!.isNotEmpty) ...[
                                 const SizedBox(width: 12),
                                 Icon(
                                   Icons.location_on,
@@ -181,8 +182,9 @@ class InventoryStockCard extends StatelessWidget {
                       else
                         _MetricColumn(
                           label: 'STOCK',
-                          value: (item.currentStock ?? item.totalQuantity ?? 0.0)
-                              .toStringAsFixed(0),
+                          value:
+                              (item.currentStock ?? item.totalQuantity ?? 0.0)
+                                  .toStringAsFixed(0),
                           unit: item.unit,
                           color: AppColors.success,
                         ),
@@ -235,8 +237,9 @@ class InventoryStockCard extends StatelessWidget {
                       ),
                     Icon(
                       Icons.more_horiz,
-                      color:
-                          isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+                      color: isDark
+                          ? AppColors.darkTextMuted
+                          : AppColors.textMuted,
                     ),
                   ],
                 ),
@@ -268,8 +271,9 @@ class _MetricColumn extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final displayUnit = value == '-' ? '' : unit;
-    final labelColor =
-        highlight ? AppColors.mango : (isDark ? AppColors.darkTextMuted : AppColors.textMuted);
+    final labelColor = highlight
+        ? AppColors.mango
+        : (isDark ? AppColors.darkTextMuted : AppColors.textMuted);
     final unitColor = isDark ? AppColors.darkTextMuted : AppColors.textMuted;
 
     return Column(

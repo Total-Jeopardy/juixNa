@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:juix_na/app/app_colors.dart';
+import 'package:juix_na/core/network/api_result.dart';
+import 'package:juix_na/core/utils/error_display.dart';
 import 'package:juix_na/features/inventory/model/inventory_models.dart';
 import 'package:juix_na/features/inventory/viewmodel/stock_transfer_state.dart';
 import 'package:juix_na/features/inventory/viewmodel/stock_transfer_vm.dart';
@@ -118,7 +120,7 @@ class _AppBar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final viewModel = ref.read(stockTransferProvider.notifier);
-    
+
     return Row(
       children: [
         // Back button (left arrow)
@@ -321,10 +323,7 @@ class _DateField extends ConsumerWidget {
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(23),
-                  border: Border.all(
-                    color: AppColors.mangoLight,
-                    width: 1,
-                  ),
+                  border: Border.all(color: AppColors.mangoLight, width: 1),
                 ),
                 padding: const EdgeInsets.symmetric(horizontal: 14),
                 child: Row(
@@ -382,17 +381,19 @@ class _ProductField extends ConsumerWidget {
             InkWell(
               onTap: transferState.isLoadingItems
                   ? null
-                  : () => _showProductPicker(context, transferState, viewModel, ref),
+                  : () => _showProductPicker(
+                      context,
+                      transferState,
+                      viewModel,
+                      ref,
+                    ),
               borderRadius: BorderRadius.circular(16),
               child: Container(
                 height: transferState.selectedItem != null ? 80 : 54,
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(23),
-                  border: Border.all(
-                    color: AppColors.mangoLight,
-                    width: 1,
-                  ),
+                  border: Border.all(color: AppColors.mangoLight, width: 1),
                 ),
                 padding: const EdgeInsets.symmetric(horizontal: 14),
                 child: Row(
@@ -474,6 +475,21 @@ class _ProductField extends ConsumerWidget {
                 ),
               ),
             ),
+            // Error message for product field
+            if (transferState.selectedItem == null &&
+                (transferState.fromLocationId != null ||
+                    transferState.toLocationId != null ||
+                    transferState.quantity > 0)) ...[
+              const SizedBox(height: 6),
+              const Text(
+                'Product selection is required',
+                style: TextStyle(
+                  color: AppColors.error,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12,
+                ),
+              ),
+            ],
           ],
         );
       },
@@ -525,20 +541,27 @@ class _ProductField extends ConsumerWidget {
                 ),
                 // Header
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 16,
+                  ),
                   child: Row(
                     children: [
                       Expanded(
                         child: Text(
                           'Select Product',
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(
                                 fontWeight: FontWeight.w800,
                                 color: AppColors.deepGreen,
                               ),
                         ),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.close, color: AppColors.deepGreen),
+                        icon: const Icon(
+                          Icons.close,
+                          color: AppColors.deepGreen,
+                        ),
                         onPressed: () => Navigator.of(context).pop(),
                       ),
                     ],
@@ -604,7 +627,9 @@ class _ProductField extends ConsumerWidget {
                                   width: 48,
                                   height: 48,
                                   decoration: BoxDecoration(
-                                    color: AppColors.mangoLight.withOpacity(0.2),
+                                    color: AppColors.mangoLight.withOpacity(
+                                      0.2,
+                                    ),
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: const Icon(
@@ -616,7 +641,8 @@ class _ProductField extends ConsumerWidget {
                                 const SizedBox(width: 16),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         item.name,
@@ -681,18 +707,11 @@ class _ProductField extends ConsumerWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
-                    Icons.error_outline,
-                    size: 48,
-                    color: AppColors.error,
-                  ),
+                  Icon(Icons.error_outline, size: 48, color: AppColors.error),
                   const SizedBox(height: 16),
                   Text(
                     'Failed to load products',
-                    style: TextStyle(
-                      color: AppColors.error,
-                      fontSize: 16,
-                    ),
+                    style: TextStyle(color: AppColors.error, fontSize: 16),
                   ),
                 ],
               ),
@@ -737,21 +756,18 @@ class _FromLocationField extends ConsumerWidget {
               onTap: transferState.isLoadingLocations
                   ? null
                   : () => _showLocationPicker(
-                        context,
-                        transferState,
-                        viewModel,
-                        isFromLocation: true,
-                      ),
+                      context,
+                      transferState,
+                      viewModel,
+                      isFromLocation: true,
+                    ),
               borderRadius: BorderRadius.circular(16),
               child: Container(
                 height: 54,
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(23),
-                  border: Border.all(
-                    color: AppColors.mangoLight,
-                    width: 1,
-                  ),
+                  border: Border.all(color: AppColors.mangoLight, width: 1),
                 ),
                 padding: const EdgeInsets.symmetric(horizontal: 14),
                 child: Row(
@@ -778,6 +794,21 @@ class _FromLocationField extends ConsumerWidget {
                 ),
               ),
             ),
+            // Error message for from location field
+            if (transferState.fromLocationId == null &&
+                (transferState.selectedItem != null ||
+                    transferState.toLocationId != null ||
+                    transferState.quantity > 0)) ...[
+              const SizedBox(height: 6),
+              const Text(
+                'Source location is required',
+                style: TextStyle(
+                  color: AppColors.error,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12,
+                ),
+              ),
+            ],
           ],
         );
       },
@@ -823,11 +854,13 @@ class _FromLocationField extends ConsumerWidget {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
               child: Text(
-                isFromLocation ? 'Select Source Location' : 'Select Destination',
+                isFromLocation
+                    ? 'Select Source Location'
+                    : 'Select Destination',
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.deepGreen,
-                    ),
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.deepGreen,
+                ),
               ),
             ),
             // Location list
@@ -952,11 +985,11 @@ class _ToLocationField extends ConsumerWidget {
               onTap: transferState.isLoadingLocations
                   ? null
                   : () => _showLocationPicker(
-                        context,
-                        transferState,
-                        viewModel,
-                        isFromLocation: false,
-                      ),
+                      context,
+                      transferState,
+                      viewModel,
+                      isFromLocation: false,
+                    ),
               borderRadius: BorderRadius.circular(16),
               child: Container(
                 height: 54,
@@ -1062,11 +1095,13 @@ class _ToLocationField extends ConsumerWidget {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
               child: Text(
-                isFromLocation ? 'Select Source Location' : 'Select Destination',
+                isFromLocation
+                    ? 'Select Source Location'
+                    : 'Select Destination',
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.deepGreen,
-                    ),
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.deepGreen,
+                ),
               ),
             ),
             // Location list
@@ -1280,10 +1315,7 @@ class _QuantityField extends ConsumerWidget {
                     decoration: BoxDecoration(
                       color: AppColors.mangoLight.withOpacity(0.2),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: AppColors.mango,
-                        width: 1,
-                      ),
+                      border: Border.all(color: AppColors.mango, width: 1),
                     ),
                     child: const Icon(
                       Icons.add,
@@ -1295,7 +1327,7 @@ class _QuantityField extends ConsumerWidget {
               ],
             ),
             // Error message or available stock info
-            if (hasError && errorMessage != null) ...[
+            if (errorMessage != null) ...[
               const SizedBox(height: 6),
               Row(
                 children: [
@@ -1363,10 +1395,7 @@ class _NotesField extends ConsumerWidget {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: AppColors.mangoLight,
-                  width: 1,
-                ),
+                border: Border.all(color: AppColors.mangoLight, width: 1),
               ),
               child: TextField(
                 onChanged: (value) => viewModel.setNote(value),
@@ -1421,10 +1450,7 @@ class _FooterButtons extends ConsumerWidget {
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: AppColors.borderSoft,
-                      width: 1,
-                    ),
+                    border: Border.all(color: AppColors.borderSoft, width: 1),
                   ),
                   child: const Center(
                     child: Text(
@@ -1448,21 +1474,21 @@ class _FooterButtons extends ConsumerWidget {
                     ? () async {
                         final success = await viewModel.createStockTransfer();
                         if (success && context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Stock transfer created successfully'),
-                              backgroundColor: AppColors.success,
-                            ),
+                          ErrorDisplay.showSuccess(
+                            context,
+                            'Stock transfer created successfully',
                           );
                           Navigator.of(context).maybePop();
                         } else if (context.mounted) {
                           final errorState = ref.read(stockTransferProvider);
-                          final errorMessage = errorState.value?.error ??
+                          final errorMessage =
+                              errorState.value?.error ??
                               'Failed to create stock transfer';
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(errorMessage),
-                              backgroundColor: AppColors.error,
+                          ErrorDisplay.showError(
+                            context,
+                            ApiError(
+                              type: ApiErrorType.unknown,
+                              message: errorMessage,
                             ),
                           );
                         }
@@ -1491,11 +1517,7 @@ class _FooterButtons extends ConsumerWidget {
                         ),
                         const SizedBox(width: 8),
                       ] else if (!isValid) ...[
-                        const Icon(
-                          Icons.block,
-                          color: Colors.white,
-                          size: 18,
-                        ),
+                        const Icon(Icons.block, color: Colors.white, size: 18),
                         const SizedBox(width: 8),
                       ],
                       Text(
@@ -1529,4 +1551,3 @@ class _FooterButtons extends ConsumerWidget {
     );
   }
 }
-

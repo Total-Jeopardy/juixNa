@@ -137,8 +137,9 @@ class InventoryItem {
       totalQuantity: dto.totalQuantity != null
           ? double.tryParse(dto.totalQuantity!)
           : null,
-      currentStock:
-          dto.currentStock != null ? double.tryParse(dto.currentStock!) : null,
+      currentStock: dto.currentStock != null
+          ? double.tryParse(dto.currentStock!)
+          : null,
       isLowStock: dto.isLowStock,
       locations: dto.locations?.map((l) => ItemLocation.fromDTO(l)).toList(),
     );
@@ -324,7 +325,5 @@ class InventoryOverview {
   }
 
   @override
-  String toString() =>
-      'InventoryOverview(items: ${items.length}, kpis: $kpis)';
+  String toString() => 'InventoryOverview(items: ${items.length}, kpis: $kpis)';
 }
-

@@ -17,9 +17,7 @@ class InventoryApi {
   /// Returns ApiResult<List<LocationDTO>>:
   /// - Success: List of LocationDTO
   /// - Failure: ApiError with message and type
-  Future<ApiResult<List<LocationDTO>>> getLocations({
-    bool? isActive,
-  }) async {
+  Future<ApiResult<List<LocationDTO>>> getLocations({bool? isActive}) async {
     final query = <String, dynamic>{};
     if (isActive != null) {
       query['is_active'] = isActive.toString();
@@ -60,9 +58,8 @@ class InventoryApi {
     return _apiClient.get<InventoryItemsResponseDTO>(
       '/api/inventory/items/',
       query: query.isEmpty ? null : query,
-      parse: (json) => InventoryItemsResponseDTO.fromJson(
-        json as Map<String, dynamic>,
-      ),
+      parse: (json) =>
+          InventoryItemsResponseDTO.fromJson(json as Map<String, dynamic>),
     );
   }
 
@@ -91,9 +88,8 @@ class InventoryApi {
     return _apiClient.get<LocationItemsResponseDTO>(
       '/api/inventory/locations/$locationId/items/',
       query: query.isEmpty ? null : query,
-      parse: (json) => LocationItemsResponseDTO.fromJson(
-        json as Map<String, dynamic>,
-      ),
+      parse: (json) =>
+          LocationItemsResponseDTO.fromJson(json as Map<String, dynamic>),
     );
   }
 
@@ -126,9 +122,8 @@ class InventoryApi {
     return _apiClient.get<StockMovementsResponseDTO>(
       '/api/inventory/stock/movements/',
       query: query.isEmpty ? null : query,
-      parse: (json) => StockMovementsResponseDTO.fromJson(
-        json as Map<String, dynamic>,
-      ),
+      parse: (json) =>
+          StockMovementsResponseDTO.fromJson(json as Map<String, dynamic>),
     );
   }
 
@@ -160,9 +155,8 @@ class InventoryApi {
     return _apiClient.post<StockTransferResponseDTO>(
       '/api/inventory/stock/transfer/',
       body: request.toJson(),
-      parse: (json) => StockTransferResponseDTO.fromJson(
-        json as Map<String, dynamic>,
-      ),
+      parse: (json) =>
+          StockTransferResponseDTO.fromJson(json as Map<String, dynamic>),
     );
   }
 
@@ -195,9 +189,8 @@ class InventoryApi {
     return _apiClient.post<StockAdjustmentResponseDTO>(
       '/api/inventory/stock/adjust/',
       body: request.toJson(),
-      parse: (json) => StockAdjustmentResponseDTO.fromJson(
-        json as Map<String, dynamic>,
-      ),
+      parse: (json) =>
+          StockAdjustmentResponseDTO.fromJson(json as Map<String, dynamic>),
     );
   }
 
@@ -227,10 +220,8 @@ class InventoryApi {
     return _apiClient.get<InventoryOverviewResponseDTO>(
       '/api/inventory/overview/',
       query: query.isEmpty ? null : query,
-      parse: (json) => InventoryOverviewResponseDTO.fromJson(
-        json as Map<String, dynamic>,
-      ),
+      parse: (json) =>
+          InventoryOverviewResponseDTO.fromJson(json as Map<String, dynamic>),
     );
   }
 }
-

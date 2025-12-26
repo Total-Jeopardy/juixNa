@@ -9,7 +9,7 @@ class InventoryRepository {
   final InventoryApi _inventoryApi;
 
   InventoryRepository({required InventoryApi inventoryApi})
-      : _inventoryApi = inventoryApi;
+    : _inventoryApi = inventoryApi;
 
   /// Get all inventory locations.
   ///
@@ -21,7 +21,9 @@ class InventoryRepository {
 
     if (result.isSuccess) {
       final success = result as ApiSuccess<List<LocationDTO>>;
-      final locations = success.data.map((dto) => Location.fromDTO(dto)).toList();
+      final locations = success.data
+          .map((dto) => Location.fromDTO(dto))
+          .toList();
       return ApiSuccess(locations);
     } else {
       final failure = result as ApiFailure<List<LocationDTO>>;
@@ -54,13 +56,14 @@ class InventoryRepository {
       final success = result as ApiSuccess<InventoryItemsResponseDTO>;
       final dto = success.data;
 
-      final items = dto.items.map((itemDto) => InventoryItem.fromDTO(itemDto)).toList();
+      final items = dto.items
+          .map((itemDto) => InventoryItem.fromDTO(itemDto))
+          .toList();
       final pagination = PaginationInfo.fromDTO(dto.pagination);
 
-      return ApiSuccess(InventoryItemsResponse(
-        items: items,
-        pagination: pagination,
-      ));
+      return ApiSuccess(
+        InventoryItemsResponse(items: items, pagination: pagination),
+      );
     } else {
       final failure = result as ApiFailure<InventoryItemsResponseDTO>;
       return ApiFailure<InventoryItemsResponse>(
@@ -95,14 +98,18 @@ class InventoryRepository {
       final dto = success.data;
 
       final location = Location.fromDTO(dto.location);
-      final items = dto.items.map((itemDto) => InventoryItem.fromDTO(itemDto)).toList();
+      final items = dto.items
+          .map((itemDto) => InventoryItem.fromDTO(itemDto))
+          .toList();
       final pagination = PaginationInfo.fromDTO(dto.pagination);
 
-      return ApiSuccess(LocationItemsResponse(
-        location: location,
-        items: items,
-        pagination: pagination,
-      ));
+      return ApiSuccess(
+        LocationItemsResponse(
+          location: location,
+          items: items,
+          pagination: pagination,
+        ),
+      );
     } else {
       final failure = result as ApiFailure<LocationItemsResponseDTO>;
       return ApiFailure<LocationItemsResponse>(
@@ -145,10 +152,9 @@ class InventoryRepository {
           .toList();
       final pagination = PaginationInfo.fromDTO(dto.pagination);
 
-      return ApiSuccess(StockMovementsResponse(
-        movements: movements,
-        pagination: pagination,
-      ));
+      return ApiSuccess(
+        StockMovementsResponse(movements: movements, pagination: pagination),
+      );
     } else {
       final failure = result as ApiFailure<StockMovementsResponseDTO>;
       return ApiFailure<StockMovementsResponse>(
@@ -281,10 +287,7 @@ class InventoryItemsResponse {
   final List<InventoryItem> items;
   final PaginationInfo pagination;
 
-  const InventoryItemsResponse({
-    required this.items,
-    required this.pagination,
-  });
+  const InventoryItemsResponse({required this.items, required this.pagination});
 }
 
 /// Response wrapper for location items list.
@@ -397,4 +400,3 @@ class StockAdjustment {
   /// Check if this is a stock-out adjustment.
   bool get isStockOut => quantity < 0;
 }
-

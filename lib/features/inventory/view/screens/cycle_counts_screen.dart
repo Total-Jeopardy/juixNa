@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:juix_na/app/app_colors.dart';
+import 'package:juix_na/core/network/api_result.dart';
+import 'package:juix_na/core/utils/error_display.dart';
 import 'package:juix_na/features/auth/viewmodel/auth_vm.dart';
 import 'package:juix_na/features/inventory/model/inventory_models.dart';
 import 'package:juix_na/features/inventory/viewmodel/cycle_count_state.dart';
@@ -261,16 +263,12 @@ class _CountSetupSection extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          // TODO: Date field
           _DateField(),
           const SizedBox(height: 12),
-          // TODO: Product field
           _ProductField(),
           const SizedBox(height: 12),
-          // TODO: Batch field (conditional, required)
           _BatchField(),
           const SizedBox(height: 12),
-          // TODO: Location field
           _LocationField(),
         ],
       ),
@@ -697,6 +695,21 @@ class _ProductField extends ConsumerWidget {
                       ),
               ),
             ),
+            // Error message for product field
+            if (countState.selectedItem == null &&
+                (countState.selectedLocationId != null ||
+                    countState.systemQuantity != null ||
+                    countState.countedQuantity != null)) ...[
+              const SizedBox(height: 6),
+              const Text(
+                'Product selection is required',
+                style: TextStyle(
+                  color: AppColors.error,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12,
+                ),
+              ),
+            ],
           ],
         );
       },
@@ -1018,13 +1031,10 @@ class _QuantitiesSection extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          // TODO: System Quantity (display only)
           _SystemQuantityField(),
           const SizedBox(height: 16),
-          // TODO: Counted Quantity (input with +/- buttons)
           _CountedQuantityField(),
           const SizedBox(height: 12),
-          // TODO: Variance (calculated display)
           _VarianceField(),
         ],
       ),
@@ -1164,6 +1174,21 @@ class _SystemQuantityField extends ConsumerWidget {
                 ),
               ),
             ),
+            // Error message for system quantity field
+            if (countState.systemQuantity == null &&
+                countState.selectedItem != null &&
+                countState.selectedLocationId != null &&
+                !countState.isLoadingSystemQuantity) ...[
+              const SizedBox(height: 6),
+              const Text(
+                'System quantity must be loaded',
+                style: TextStyle(
+                  color: AppColors.error,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12,
+                ),
+              ),
+            ],
           ],
         );
       },
@@ -1276,6 +1301,21 @@ class _CountedQuantityField extends ConsumerWidget {
                 ),
               ],
             ),
+            // Error message for counted quantity field
+            if (countState.countedQuantity == null &&
+                (countState.selectedItem != null ||
+                    countState.selectedLocationId != null ||
+                    countState.systemQuantity != null)) ...[
+              const SizedBox(height: 6),
+              const Text(
+                'Counted quantity is required',
+                style: TextStyle(
+                  color: AppColors.error,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12,
+                ),
+              ),
+            ],
           ],
         );
       },
@@ -1589,26 +1629,21 @@ class _AdjustStockButton extends ConsumerWidget {
                   // Call adjustStockFromCount which will create pending approval for clerks
                   final success = await viewModel.adjustStockFromCount();
                   if (success && context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                          'Stock adjustment request created (pending approval)',
-                        ),
-                        backgroundColor: AppColors.success,
-                        duration: Duration(seconds: 2),
-                      ),
+                    ErrorDisplay.showSuccess(
+                      context,
+                      'Stock adjustment request created (pending approval)',
                     );
                     Navigator.of(context).pop();
                   } else if (context.mounted) {
                     // Show error if any
                     final errorState = ref.read(cycleCountProvider);
                     errorState.whenData((s) {
-                      if (s.error != null) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(s.error!),
-                            backgroundColor: AppColors.error,
-                            duration: const Duration(seconds: 3),
+                      if (s.error != null && context.mounted) {
+                        ErrorDisplay.showError(
+                          context,
+                          ApiError(
+                            type: ApiErrorType.unknown,
+                            message: s.error!,
                           ),
                         );
                       }
@@ -1728,27 +1763,22 @@ class _FooterButtons extends ConsumerWidget {
                           final success = await viewModel
                               .adjustStockFromCount();
                           if (success && context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  needsApproval
-                                      ? 'Stock adjustment request created (pending approval)'
-                                      : 'Stock adjusted successfully',
-                                ),
-                                backgroundColor: AppColors.success,
-                                duration: const Duration(seconds: 2),
-                              ),
+                            ErrorDisplay.showSuccess(
+                              context,
+                              needsApproval
+                                  ? 'Stock adjustment request created (pending approval)'
+                                  : 'Stock adjusted successfully',
                             );
                             Navigator.of(context).pop();
                           } else if (context.mounted) {
                             final errorState = ref.read(cycleCountProvider);
                             errorState.whenData((s) {
-                              if (s.error != null) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(s.error!),
-                                    backgroundColor: AppColors.error,
-                                    duration: const Duration(seconds: 3),
+                              if (s.error != null && context.mounted) {
+                                ErrorDisplay.showError(
+                                  context,
+                                  ApiError(
+                                    type: ApiErrorType.unknown,
+                                    message: s.error!,
                                   ),
                                 );
                               }
@@ -1816,23 +1846,20 @@ class _FooterButtons extends ConsumerWidget {
                           // Save count without adjusting stock
                           final success = await viewModel.createCycleCount();
                           if (success && context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Cycle count saved successfully'),
-                                backgroundColor: AppColors.success,
-                                duration: Duration(seconds: 2),
-                              ),
+                            ErrorDisplay.showSuccess(
+                              context,
+                              'Cycle count saved successfully',
                             );
                             Navigator.of(context).pop();
                           } else if (context.mounted) {
                             final errorState = ref.read(cycleCountProvider);
                             errorState.whenData((s) {
-                              if (s.error != null) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(s.error!),
-                                    backgroundColor: AppColors.error,
-                                    duration: const Duration(seconds: 3),
+                              if (s.error != null && context.mounted) {
+                                ErrorDisplay.showError(
+                                  context,
+                                  ApiError(
+                                    type: ApiErrorType.unknown,
+                                    message: s.error!,
                                   ),
                                 );
                               }

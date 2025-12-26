@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:juix_na/bootstrap.dart';
+import 'package:juix_na/core/auth/auth_error_handler.dart';
 import 'package:juix_na/core/network/api_result.dart';
 import 'package:juix_na/features/inventory/data/inventory_api.dart';
 import 'package:juix_na/features/inventory/data/inventory_repository.dart';
@@ -35,6 +36,10 @@ class InventoryOverviewViewModel extends AsyncNotifier<InventoryOverviewState> {
       final results = await Future.wait([locationsFuture, overviewFuture]);
       final locationsResult = results[0] as ApiResult<List<Location>>;
       final overviewResult = results[1] as ApiResult<InventoryOverview>;
+
+      // Handle 401 errors (auto-logout)
+      await AuthErrorHandler.handleUnauthorized(ref, locationsResult);
+      await AuthErrorHandler.handleUnauthorized(ref, overviewResult);
 
       // Extract locations (preserve existing if call fails)
       final locations = locationsResult.isSuccess
@@ -110,6 +115,9 @@ class InventoryOverviewViewModel extends AsyncNotifier<InventoryOverviewState> {
         );
       }
 
+      // Handle 401 errors (auto-logout)
+      await AuthErrorHandler.handleUnauthorized(ref, result);
+
       if (result.isSuccess) {
         List<InventoryItem> items;
 
@@ -130,7 +138,7 @@ class InventoryOverviewViewModel extends AsyncNotifier<InventoryOverviewState> {
         );
       } else {
         final failure = result as ApiFailure;
-        // Preserve existing items on error
+        // Preserve existing items on error (401 already handled by AuthErrorHandler)
         state = AsyncValue.data(
           currentState.copyWith(
             error: failure.error.message,
@@ -164,6 +172,9 @@ class InventoryOverviewViewModel extends AsyncNotifier<InventoryOverviewState> {
         kind: filters.kind?.value,
         search: filters.search,
       );
+
+      // Handle 401 errors (auto-logout)
+      await AuthErrorHandler.handleUnauthorized(ref, result);
 
       if (result.isSuccess) {
         final success = result as ApiSuccess<InventoryOverview>;
@@ -206,6 +217,9 @@ class InventoryOverviewViewModel extends AsyncNotifier<InventoryOverviewState> {
 
     try {
       final result = await _inventoryRepository.getLocations();
+
+      // Handle 401 errors (auto-logout)
+      await AuthErrorHandler.handleUnauthorized(ref, result);
 
       if (result.isSuccess) {
         final success = result as ApiSuccess<List<Location>>;
@@ -262,8 +276,9 @@ class InventoryOverviewViewModel extends AsyncNotifier<InventoryOverviewState> {
       (state.value ?? InventoryOverviewState.initial()).copyWith(
         selectedLocationId: locationId,
         // Update filters to include location
-        filters: (state.value?.filters ?? const InventoryFilters())
-            .copyWith(locationId: locationId),
+        filters: (state.value?.filters ?? const InventoryFilters()).copyWith(
+          locationId: locationId,
+        ),
       ),
     );
 
@@ -296,10 +311,10 @@ final inventoryRepositoryProvider = Provider<InventoryRepository>((ref) {
 /// Riverpod provider for InventoryOverviewViewModel.
 final inventoryOverviewProvider =
     AsyncNotifierProvider<InventoryOverviewViewModel, InventoryOverviewState>(
-  () {
-    return InventoryOverviewViewModel();
-  },
-);
+      () {
+        return InventoryOverviewViewModel();
+      },
+    );
 
 /// Derived provider for inventory items (for easy access).
 final inventoryItemsProvider = Provider<List<InventoryItem>>((ref) {
@@ -318,4 +333,3 @@ final inventoryLocationsProvider = Provider<List<Location>>((ref) {
   final state = ref.watch(inventoryOverviewProvider);
   return state.value?.locations ?? [];
 });
-

@@ -88,9 +88,7 @@ class CycleCountState {
           isLoadingSystemQuantity ?? this.isLoadingSystemQuantity,
       isSubmitting: isSubmitting ?? this.isSubmitting,
       error: clearError ? null : (error ?? this.error),
-      fieldErrors: clearFieldErrors
-          ? {}
-          : (fieldErrors ?? this.fieldErrors),
+      fieldErrors: clearFieldErrors ? {} : (fieldErrors ?? this.fieldErrors),
     );
   }
 
@@ -151,13 +149,15 @@ class CycleCountState {
     if (selectedLocationId == null) return null;
     return availableLocations.firstWhere(
       (loc) => loc.id == selectedLocationId,
-      orElse: () => availableLocations.firstOrNull ?? Location(
-        id: -1,
-        name: '',
-        isActive: false,
-        createdAt: DateTime(1970),
-        updatedAt: DateTime(1970),
-      ),
+      orElse: () =>
+          availableLocations.firstOrNull ??
+          Location(
+            id: -1,
+            name: '',
+            isActive: false,
+            createdAt: DateTime(1970),
+            updatedAt: DateTime(1970),
+          ),
     );
   }
 
@@ -179,4 +179,3 @@ class CycleCountState {
 extension LocationListExtension on List<Location> {
   Location? get firstOrNull => isEmpty ? null : first;
 }
-

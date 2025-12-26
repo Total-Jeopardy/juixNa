@@ -1,7 +1,10 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:juix_na/app/app_colors.dart';
+import 'package:juix_na/core/network/api_result.dart';
+import 'package:juix_na/core/utils/error_display.dart';
 import 'package:juix_na/features/inventory/model/inventory_models.dart';
 import 'package:juix_na/features/inventory/viewmodel/stock_movement_state.dart';
 import 'package:juix_na/features/inventory/viewmodel/stock_movement_vm.dart';
@@ -43,60 +46,35 @@ class _StockMovementScreenState extends ConsumerState<StockMovementScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // TODO: 1. AppBar (back button, title, theme toggle)
               _AppBar(),
 
               const SizedBox(height: 12),
 
-              // TODO: 2. Online Status Indicator
               Center(child: _OnlineStatusIndicator()),
 
               const SizedBox(height: 12),
 
-              // TODO: 3. Movement Toggle (Stock-In / Stock-Out)
               _MovementToggle(),
 
               const SizedBox(height: 16),
 
-              // TODO: 4. Form Card
               _FormCard(
                 children: [
-                  // Date picker
                   _DateField(),
-
-                  // Product picker
                   _ProductField(),
-
-                  // Batch # field (conditional - only for batch-tracked products)
                   _BatchField(),
-
-                  // Quantity field
                   _QuantityField(),
                   const SizedBox(height: 12),
-
-                  // Unit Cost + Location (inline row)
                   _UnitCostLocationRow(),
-
                   const SizedBox(height: 12),
-
-                  // Notes / Reason field
                   _NotesReasonField(),
-
                   const SizedBox(height: 12),
-
-                  // View Recent Movements link
                   _ViewRecentMovementsLink(),
-
-                  const SizedBox(height: 12),
-
-                  // TODO: Reference field
-                  _ReferenceField(),
                 ],
               ),
 
               const SizedBox(height: 18),
 
-              // TODO: 6. Footer buttons (Cancel, Save Movement)
               _FooterButtons(),
             ],
           ),
@@ -110,11 +88,13 @@ class _StockMovementScreenState extends ConsumerState<StockMovementScreen> {
 // PLACEHOLDER WIDGETS - To be implemented step by step
 // ============================================================================
 
-class _AppBar extends StatelessWidget {
+class _AppBar extends ConsumerWidget {
   const _AppBar();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final viewModel = ref.read(stockMovementProvider.notifier);
+
     return Row(
       children: [
         // Back button (left arrow)
@@ -146,8 +126,14 @@ class _AppBar extends StatelessWidget {
             borderRadius: BorderRadius.circular(20), // Pill shape
           ),
           child: TextButton.icon(
-            onPressed: () {
-              // TODO: Implement sync functionality
+            onPressed: () async {
+              // Refresh products with current location (if any)
+              final state = ref.read(stockMovementProvider);
+              state.whenData((currentState) async {
+                await viewModel.loadProducts(
+                  locationId: currentState.selectedLocationId,
+                );
+              });
             },
             label: const Text(
               'Refresh',
@@ -815,6 +801,21 @@ class _ProductField extends ConsumerWidget {
                         ),
                 ),
               ),
+              // Error message for product field
+              if (movementState.selectedItem == null &&
+                  (movementState.quantity > 0 ||
+                      movementState.selectedLocationId != null ||
+                      movementState.reason.isNotEmpty)) ...[
+                const SizedBox(height: 6),
+                const Text(
+                  'Product selection is required',
+                  style: TextStyle(
+                    color: AppColors.error,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
             ],
           ),
         );
@@ -841,7 +842,6 @@ class _BatchField extends ConsumerWidget {
         // In the future, check if product.requiresBatch
         final requiresBatch = movementState.selectedItem != null;
         // For now, assume batch is required if product is selected and not filled
-        // TODO: Add batchNumber to StockMovementState
         final batchNumber = null; // movementState.batchNumber;
         final hasError = requiresBatch && batchNumber == null;
         final batchValue = batchNumber ?? 'Select Batch';
@@ -882,12 +882,10 @@ class _BatchField extends ConsumerWidget {
               // Input field
               InkWell(
                 onTap: () {
-                  // TODO: Show batch picker
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Batch picker will be implemented'),
-                      duration: Duration(seconds: 2),
-                    ),
+                  ErrorDisplay.showSuccess(
+                    context,
+                    'Batch picker will be implemented',
+                    duration: const Duration(seconds: 2),
                   );
                 },
                 borderRadius: BorderRadius.circular(16),
@@ -1158,12 +1156,12 @@ class _QuantityField extends ConsumerWidget {
               const SizedBox(height: 6),
               Row(
                 children: [
-                  // Error message
-                  if (exceeds)
-                    const Expanded(
+                  // Error message (use state's quantityError getter)
+                  if (movementState.quantityError != null)
+                    Expanded(
                       child: Text(
-                        'Exceeds available stock',
-                        style: TextStyle(
+                        movementState.quantityError!,
+                        style: const TextStyle(
                           color: AppColors.error,
                           fontWeight: FontWeight.w700,
                           fontSize: 12,
@@ -1419,7 +1417,7 @@ class _UnitCostLocationRow extends ConsumerWidget {
                           // Unit cost text
                           Expanded(
                             child: Text(
-                              '\$ 4.50', // TODO: Get from API or product
+                              '\$ 4.50', // Placeholder - unit cost not yet available from API
                               style: TextStyle(
                                 color: AppColors.textMuted,
                                 fontWeight: FontWeight.w800,
@@ -1527,10 +1525,25 @@ class _UnitCostLocationRow extends ConsumerWidget {
                         ),
                       ),
                     ),
-                    // Empty space to match Unit Cost's "MANAGER/ADMIN ONLY" text height
-                    const SizedBox(
-                      height: 29,
-                    ), // 6 (spacing) + 11 (text) + 12 (extra)
+                    // Error message for location field
+                    if (movementState.selectedLocationId == null &&
+                        (movementState.selectedItem != null ||
+                            movementState.quantity > 0 ||
+                            movementState.reason.isNotEmpty)) ...[
+                      const SizedBox(height: 6),
+                      const Text(
+                        'Location selection is required',
+                        style: TextStyle(
+                          color: AppColors.error,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ] else
+                      // Empty space to match Unit Cost's "MANAGER/ADMIN ONLY" text height
+                      const SizedBox(
+                        height: 29,
+                      ), // 6 (spacing) + 11 (text) + 12 (extra)
                   ],
                 ),
               ),
@@ -1666,6 +1679,21 @@ class _NotesReasonFieldState extends ConsumerState<_NotesReasonField> {
                     },
               ),
             ),
+            // Error message for reason field
+            if (movementState.reason.isEmpty &&
+                (movementState.selectedItem != null ||
+                    movementState.selectedLocationId != null ||
+                    movementState.quantity > 0)) ...[
+              const SizedBox(height: 6),
+              const Text(
+                'Reason is required',
+                style: TextStyle(
+                  color: AppColors.error,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12,
+                ),
+              ),
+            ],
           ],
         );
       },
@@ -1682,13 +1710,8 @@ class _ViewRecentMovementsLink extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: () {
-        // TODO: Navigate to recent movements screen
-        // Navigator.push(
-        //   context,
-        //   MaterialPageRoute(
-        //     builder: (context) => const RecentMovementsScreen(),
-        //   ),
-        // );
+        // Navigate to transfer history screen
+        context.push('/inventory/transfer/history');
       },
       borderRadius: BorderRadius.circular(12),
       child: Padding(
@@ -1726,23 +1749,6 @@ class _ViewRecentMovementsLink extends StatelessWidget {
   }
 }
 
-class _ReferenceField extends StatelessWidget {
-  const _ReferenceField();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 80,
-      color: Colors.transparent,
-      child: const Center(
-        child: Text(
-          'TODO: Reference Field',
-          style: TextStyle(color: Colors.grey),
-        ),
-      ),
-    );
-  }
-}
 
 class _FooterButtons extends ConsumerWidget {
   const _FooterButtons();
@@ -1805,14 +1811,9 @@ class _FooterButtons extends ConsumerWidget {
 
                           if (success) {
                             // Show success message
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  'Stock movement saved successfully',
-                                ),
-                                backgroundColor: AppColors.success,
-                                duration: Duration(seconds: 2),
-                              ),
+                            ErrorDisplay.showSuccess(
+                              context,
+                              'Stock movement saved successfully',
                             );
                             // Navigate back on success
                             Navigator.of(context).maybePop();
@@ -1822,12 +1823,13 @@ class _FooterButtons extends ConsumerWidget {
                               stockMovementProvider,
                             );
                             currentState.whenData((state) {
-                              if (state.error != null) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(state.error!),
-                                    backgroundColor: AppColors.error,
-                                    duration: const Duration(seconds: 3),
+                              if (state.error != null && context.mounted) {
+                                // Convert string error to ApiError for ErrorDisplay
+                                ErrorDisplay.showError(
+                                  context,
+                                  ApiError(
+                                    type: ApiErrorType.unknown,
+                                    message: state.error!,
                                   ),
                                 );
                               }

@@ -14,7 +14,7 @@ final tokenStoreProvider = Provider<TokenStore>((ref) {
 final apiClientProvider = Provider<ApiClient>((ref) {
   final tokenStore = ref.watch(tokenStoreProvider);
   final config = AppConfig.getCurrent();
-  
+
   return ApiClient(
     baseUrl: config.baseUrl,
     tokenProvider: () => tokenStore.getAccessToken(),
@@ -24,7 +24,7 @@ final apiClientProvider = Provider<ApiClient>((ref) {
 
 /// App-wide dependency injection.
 /// Creates single instances of shared services and provides them to the app.
-/// 
+///
 /// Note: With Riverpod, providers are automatically created when accessed.
 /// We don't need to manually create instances here - the providers handle it.
 /// However, if you need to override with specific instances (e.g., for testing),

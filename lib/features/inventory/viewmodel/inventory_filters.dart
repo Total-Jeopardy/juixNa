@@ -54,12 +54,12 @@ class InventoryFilters {
   }
 
   /// Convert filters to query parameters for API calls.
-  /// 
+  ///
   /// Matches API specification:
   /// - `kind`: INGREDIENT | FINISHED_PRODUCT | PACKAGING
   /// - `location_id`: integer (for location-specific endpoints)
   /// - `search`: text search (matches name or SKU)
-  /// 
+  ///
   /// Note: For search, consider debouncing in the UI to avoid
   /// hammering the API on every keystroke (e.g., 300-500ms delay).
   Map<String, dynamic> toQueryParams() {
@@ -98,4 +98,3 @@ class InventoryFilters {
     return 'InventoryFilters(kind: $kind, locationId: $locationId, search: $search)';
   }
 }
-

@@ -90,13 +90,15 @@ class InventoryOverviewState {
     if (selectedLocationId == null) return null;
     return locations.firstWhere(
       (loc) => loc.id == selectedLocationId,
-      orElse: () => locations.firstOrNull ?? Location(
-        id: -1,
-        name: '',
-        isActive: false,
-        createdAt: DateTime(1970),
-        updatedAt: DateTime(1970),
-      ),
+      orElse: () =>
+          locations.firstOrNull ??
+          Location(
+            id: -1,
+            name: '',
+            isActive: false,
+            createdAt: DateTime(1970),
+            updatedAt: DateTime(1970),
+          ),
     );
   }
 
@@ -120,4 +122,3 @@ class InventoryOverviewState {
 extension ListExtension<T> on List<T> {
   T? get firstOrNull => isEmpty ? null : first;
 }
-

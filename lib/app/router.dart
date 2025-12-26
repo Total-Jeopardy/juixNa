@@ -29,7 +29,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       if (authState.isLoading) {
         return null; // Don't redirect while loading
       }
-      
+
       if (authState.hasError) {
         // On error, allow access to login page
         final isOnLoginPage = state.uri.path == '/login';
@@ -134,7 +134,7 @@ final routerProvider = Provider<GoRouter>((ref) {
 
 /// Listenable wrapper for auth state changes to trigger router redirects.
 /// This allows go_router to react to authentication state changes.
-/// 
+///
 /// Note: go_router's refreshListenable requires a ChangeNotifier.
 /// We watch the auth provider and notify when auth state changes.
 class _AuthStateNotifier extends ChangeNotifier {
@@ -149,16 +149,16 @@ class _AuthStateNotifier extends ChangeNotifier {
 
     // Watch auth state and notify listeners when it changes
     // Store the subscription for proper disposal
-    _subscription = _ref.listen<AsyncValue<AuthState>>(
-      authViewModelProvider,
-      (previous, next) {
-        final currentAuthState = next.value?.isAuthenticated ?? false;
-        if (_lastAuthState != currentAuthState) {
-          _lastAuthState = currentAuthState;
-          notifyListeners();
-        }
-      },
-    );
+    _subscription = _ref.listen<AsyncValue<AuthState>>(authViewModelProvider, (
+      previous,
+      next,
+    ) {
+      final currentAuthState = next.value?.isAuthenticated ?? false;
+      if (_lastAuthState != currentAuthState) {
+        _lastAuthState = currentAuthState;
+        notifyListeners();
+      }
+    });
   }
 
   @override
@@ -169,4 +169,3 @@ class _AuthStateNotifier extends ChangeNotifier {
     super.dispose();
   }
 }
-

@@ -53,16 +53,26 @@ class User {
   /// Check if user has any of the specified permissions (case-insensitive).
   /// Example: user.hasAnyPermission(["inventory.view", "inventory.stock_in"])
   bool hasAnyPermission(List<String> permissionsToCheck) {
-    final lowerPermissions = permissionsToCheck.map((p) => p.toLowerCase()).toList();
-    return permissions.any((perm) => lowerPermissions.contains(perm.toLowerCase()));
+    final lowerPermissions = permissionsToCheck
+        .map((p) => p.toLowerCase())
+        .toList();
+    return permissions.any(
+      (perm) => lowerPermissions.contains(perm.toLowerCase()),
+    );
   }
 
   /// Check if user has all of the specified permissions (case-insensitive).
   /// Example: user.hasAllPermissions(["inventory.view", "inventory.stock_in"])
   bool hasAllPermissions(List<String> permissionsToCheck) {
-    final lowerPermissions = permissionsToCheck.map((p) => p.toLowerCase()).toList();
-    final userLowerPermissions = permissions.map((p) => p.toLowerCase()).toList();
-    return lowerPermissions.every((perm) => userLowerPermissions.contains(perm));
+    final lowerPermissions = permissionsToCheck
+        .map((p) => p.toLowerCase())
+        .toList();
+    final userLowerPermissions = permissions
+        .map((p) => p.toLowerCase())
+        .toList();
+    return lowerPermissions.every(
+      (perm) => userLowerPermissions.contains(perm),
+    );
   }
 
   /// Check if user is an admin (has "admin" role or admin.* permissions).
@@ -84,7 +94,8 @@ class User {
   }
 
   @override
-  String toString() => 'User(id: $id, email: $email, name: $name, roles: $roles)';
+  String toString() =>
+      'User(id: $id, email: $email, name: $name, roles: $roles)';
 
   @override
   bool operator ==(Object other) =>
@@ -97,4 +108,3 @@ class User {
   @override
   int get hashCode => id.hashCode ^ email.hashCode;
 }
-

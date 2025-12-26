@@ -10,18 +10,16 @@ class AuthRepository {
   final AuthApi _authApi;
   final TokenStore _tokenStore;
 
-  AuthRepository({
-    required AuthApi authApi,
-    required TokenStore tokenStore,
-  })  : _authApi = authApi,
-        _tokenStore = tokenStore;
+  AuthRepository({required AuthApi authApi, required TokenStore tokenStore})
+    : _authApi = authApi,
+      _tokenStore = tokenStore;
 
   /// Login with email and password.
-  /// 
+  ///
   /// 1. Calls AuthApi.login()
   /// 2. On success: saves token to TokenStore
   /// 3. Converts UserDTO to User domain model
-  /// 
+  ///
   /// Returns ApiResult<User>:
   /// - Success: User domain model (token already saved)
   /// - Failure: ApiError from API call
@@ -49,7 +47,7 @@ class AuthRepository {
   }
 
   /// Logout current user.
-  /// 
+  ///
   /// Removes token from storage.
   /// Does not call backend (backend token remains valid until expiry).
   Future<void> logout() async {
@@ -57,7 +55,7 @@ class AuthRepository {
   }
 
   /// Check if user is currently authenticated.
-  /// 
+  ///
   /// Returns true if a token exists in storage.
   /// Note: This does not validate the token with the backend.
   /// For v1, we assume token is valid if it exists.
@@ -67,10 +65,9 @@ class AuthRepository {
   }
 
   /// Get stored access token (if any).
-  /// 
+  ///
   /// Returns the token string, or null if not logged in.
   Future<String?> getAccessToken() async {
     return _tokenStore.getAccessToken();
   }
 }
-

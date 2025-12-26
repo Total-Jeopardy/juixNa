@@ -98,7 +98,7 @@ class _TransferHistoryScreenState extends ConsumerState<TransferHistoryScreen> {
               Expanded(
                 child: RefreshIndicator(
                   onRefresh: () => viewModel.refresh(),
-                  child: _TransferList(state: state),
+                  child: _TransferList(state: state, viewModel: viewModel),
                 ),
               ),
             ],
@@ -448,15 +448,32 @@ Future<void> _showProductPicker(
                   const SizedBox(height: 16),
                   Text(
                     'Error loading products',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: AppColors.error,
-                    ),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.titleMedium?.copyWith(color: AppColors.error),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     error,
                     style: Theme.of(context).textTheme.bodySmall,
                     textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton.icon(
+                    onPressed: () async {
+                      // Retry loading products by calling the picker again
+                      Navigator.of(context).pop(); // Close current picker
+                      await Future.delayed(const Duration(milliseconds: 100));
+                      if (context.mounted) {
+                        _showProductPicker(context, ref, viewModel);
+                      }
+                    },
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Retry'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.mango,
+                      foregroundColor: Colors.white,
+                    ),
                   ),
                 ],
               ),
@@ -474,10 +491,7 @@ Future<void> _showProductPicker(
                   const SizedBox(height: 16),
                   Text(
                     'No products available',
-                    style: TextStyle(
-                      color: AppColors.textMuted,
-                      fontSize: 16,
-                    ),
+                    style: TextStyle(color: AppColors.textMuted, fontSize: 16),
                   ),
                 ],
               ),
@@ -836,8 +850,9 @@ class _FilterButton extends StatelessWidget {
 /// Transfer List
 class _TransferList extends StatelessWidget {
   final TransferHistoryState state;
+  final TransferHistoryViewModel viewModel;
 
-  const _TransferList({required this.state});
+  const _TransferList({required this.state, required this.viewModel});
 
   @override
   Widget build(BuildContext context) {
@@ -865,6 +880,16 @@ class _TransferList extends StatelessWidget {
                   context,
                 ).textTheme.bodyMedium?.copyWith(color: AppColors.error),
                 textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                onPressed: () => viewModel.refresh(),
+                icon: const Icon(Icons.refresh),
+                label: const Text('Retry'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.mango,
+                  foregroundColor: Colors.white,
+                ),
               ),
             ],
           ),

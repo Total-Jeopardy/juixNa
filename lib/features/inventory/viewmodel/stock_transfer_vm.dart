@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:juix_na/core/auth/auth_error_handler.dart';
 import 'package:juix_na/core/network/api_result.dart';
 import 'package:juix_na/features/inventory/data/inventory_repository.dart';
 import 'package:juix_na/features/inventory/model/inventory_models.dart';
@@ -31,6 +32,9 @@ class StockTransferViewModel extends AsyncNotifier<StockTransferState> {
   Future<StockTransferState> _loadInitialData() async {
     try {
       final result = await _inventoryRepository.getLocations();
+
+      // Handle 401 errors (auto-logout)
+      await AuthErrorHandler.handleUnauthorized(ref, result);
 
       if (result.isSuccess) {
         final success = result as ApiSuccess<List<Location>>;
@@ -70,6 +74,9 @@ class StockTransferViewModel extends AsyncNotifier<StockTransferState> {
         // Load items across all locations
         result = await _inventoryRepository.getInventoryItems();
       }
+
+      // Handle 401 errors (auto-logout)
+      await AuthErrorHandler.handleUnauthorized(ref, result);
 
       if (result.isSuccess) {
         List<InventoryItem> items;
@@ -113,7 +120,7 @@ class StockTransferViewModel extends AsyncNotifier<StockTransferState> {
   /// Load available stock for selected item and from-location.
   /// Used for validation (ensuring transfer doesn't exceed available stock).
   /// Preserves existing state on error.
-  /// 
+  ///
   /// Uses request token to prevent stale responses: if item/location changes
   /// while a request is in-flight, the stale response will be ignored.
   Future<void> getAvailableStock({
@@ -121,11 +128,11 @@ class StockTransferViewModel extends AsyncNotifier<StockTransferState> {
     required int locationId,
   }) async {
     final currentState = state.value ?? StockTransferState.initial();
-    
+
     // Create request token for this specific item+location combination
     final requestToken = '${itemId}_$locationId';
     _currentStockRequestToken = requestToken;
-    
+
     state = AsyncValue.data(
       currentState.copyWith(isLoadingAvailableStock: true),
     );
@@ -134,6 +141,9 @@ class StockTransferViewModel extends AsyncNotifier<StockTransferState> {
       final result = await _inventoryRepository.getLocationItems(
         locationId: locationId,
       );
+
+      // Handle 401 errors (auto-logout)
+      await AuthErrorHandler.handleUnauthorized(ref, result);
 
       // Check if this response is still valid (item/location hasn't changed)
       if (_currentStockRequestToken != requestToken) {
@@ -149,13 +159,15 @@ class StockTransferViewModel extends AsyncNotifier<StockTransferState> {
         // Find the selected item in the location items
         final item = items.firstWhere(
           (i) => i.id == itemId,
-          orElse: () => items.firstOrNull ?? const InventoryItem(
-            id: -1,
-            name: '',
-            sku: '',
-            unit: '',
-            kind: ItemKind.finishedProduct,
-          ),
+          orElse: () =>
+              items.firstOrNull ??
+              const InventoryItem(
+                id: -1,
+                name: '',
+                sku: '',
+                unit: '',
+                kind: ItemKind.finishedProduct,
+              ),
         );
 
         final availableStock = item.currentStock ?? item.totalQuantity ?? 0.0;
@@ -208,10 +220,7 @@ class StockTransferViewModel extends AsyncNotifier<StockTransferState> {
   Future<void> selectItem(InventoryItem? item) async {
     final currentState = state.value ?? StockTransferState.initial();
     state = AsyncValue.data(
-      currentState.copyWith(
-        selectedItem: item,
-        clearAvailableStock: true,
-      ),
+      currentState.copyWith(selectedItem: item, clearAvailableStock: true),
     );
 
     // If from-location is also selected, load available stock
@@ -246,41 +255,31 @@ class StockTransferViewModel extends AsyncNotifier<StockTransferState> {
   /// Update to-location.
   void setToLocation(int? locationId) {
     final currentState = state.value ?? StockTransferState.initial();
-    state = AsyncValue.data(
-      currentState.copyWith(toLocationId: locationId),
-    );
+    state = AsyncValue.data(currentState.copyWith(toLocationId: locationId));
   }
 
   /// Update quantity.
   void setQuantity(double quantity) {
     final currentState = state.value ?? StockTransferState.initial();
-    state = AsyncValue.data(
-      currentState.copyWith(quantity: quantity),
-    );
+    state = AsyncValue.data(currentState.copyWith(quantity: quantity));
   }
 
   /// Update date.
   void setDate(DateTime date) {
     final currentState = state.value ?? StockTransferState.initial();
-    state = AsyncValue.data(
-      currentState.copyWith(date: date),
-    );
+    state = AsyncValue.data(currentState.copyWith(date: date));
   }
 
   /// Update reference.
   void setReference(String? reference) {
     final currentState = state.value ?? StockTransferState.initial();
-    state = AsyncValue.data(
-      currentState.copyWith(reference: reference),
-    );
+    state = AsyncValue.data(currentState.copyWith(reference: reference));
   }
 
   /// Update note.
   void setNote(String? note) {
     final currentState = state.value ?? StockTransferState.initial();
-    state = AsyncValue.data(
-      currentState.copyWith(note: note),
-    );
+    state = AsyncValue.data(currentState.copyWith(note: note));
   }
 
   /// Create stock transfer.
@@ -310,11 +309,7 @@ class StockTransferViewModel extends AsyncNotifier<StockTransferState> {
         fieldErrors['quantity'] = currentState.quantityError ?? '';
       }
 
-      state = AsyncValue.data(
-        currentState.copyWith(
-          fieldErrors: fieldErrors,
-        ),
-      );
+      state = AsyncValue.data(currentState.copyWith(fieldErrors: fieldErrors));
       return false;
     }
 
@@ -325,10 +320,15 @@ class StockTransferViewModel extends AsyncNotifier<StockTransferState> {
         itemId: currentState.selectedItem!.id,
         fromLocationId: currentState.fromLocationId!,
         toLocationId: currentState.toLocationId!,
-        quantity: currentState.quantity.toStringAsFixed(3), // API expects string with 3 decimals
+        quantity: currentState.quantity.toStringAsFixed(
+          3,
+        ), // API expects string with 3 decimals
         reference: currentState.reference,
         note: currentState.note,
       );
+
+      // Handle 401 errors (auto-logout)
+      await AuthErrorHandler.handleUnauthorized(ref, result);
 
       if (result.isSuccess) {
         // Success - reset form to initial state but keep locations/items
@@ -364,10 +364,7 @@ class StockTransferViewModel extends AsyncNotifier<StockTransferState> {
   void clearError() {
     final currentState = state.value ?? StockTransferState.initial();
     state = AsyncValue.data(
-      currentState.copyWith(
-        clearError: true,
-        clearFieldErrors: true,
-      ),
+      currentState.copyWith(clearError: true, clearFieldErrors: true),
     );
   }
 
@@ -391,14 +388,11 @@ class StockTransferViewModel extends AsyncNotifier<StockTransferState> {
 
 /// Riverpod provider for StockTransferViewModel.
 final stockTransferProvider =
-    AsyncNotifierProvider<StockTransferViewModel, StockTransferState>(
-  () {
-    return StockTransferViewModel();
-  },
-);
+    AsyncNotifierProvider<StockTransferViewModel, StockTransferState>(() {
+      return StockTransferViewModel();
+    });
 
 /// Extension to get first element or null from list (generic).
 extension InventoryItemListExtension on List<InventoryItem> {
   InventoryItem? get firstOrNull => isEmpty ? null : first;
 }
-

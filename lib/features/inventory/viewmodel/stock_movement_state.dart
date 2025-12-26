@@ -1,10 +1,7 @@
 import 'package:juix_na/features/inventory/model/inventory_models.dart';
 
 /// Stock movement type (for UI).
-enum StockMovementType {
-  stockIn,
-  stockOut,
-}
+enum StockMovementType { stockIn, stockOut }
 
 /// Stock movement state for the stock movement screen.
 /// Manages form data, available products, locations, and validation.
@@ -105,9 +102,7 @@ class StockMovementState {
           isLoadingAvailableStock ?? this.isLoadingAvailableStock,
       isSubmitting: isSubmitting ?? this.isSubmitting,
       error: clearError ? null : (error ?? this.error),
-      fieldErrors: clearFieldErrors
-          ? {}
-          : (fieldErrors ?? this.fieldErrors),
+      fieldErrors: clearFieldErrors ? {} : (fieldErrors ?? this.fieldErrors),
     );
   }
 
@@ -157,13 +152,15 @@ class StockMovementState {
     if (selectedLocationId == null) return null;
     return availableLocations.firstWhere(
       (loc) => loc.id == selectedLocationId,
-      orElse: () => availableLocations.firstOrNull ?? Location(
-        id: -1,
-        name: '',
-        isActive: false,
-        createdAt: DateTime(1970),
-        updatedAt: DateTime(1970),
-      ),
+      orElse: () =>
+          availableLocations.firstOrNull ??
+          Location(
+            id: -1,
+            name: '',
+            isActive: false,
+            createdAt: DateTime(1970),
+            updatedAt: DateTime(1970),
+          ),
     );
   }
 
@@ -190,4 +187,3 @@ extension LocationListExtension on List<Location> {
 extension ListExtension<T> on List<T> {
   T? get firstOrNull => isEmpty ? null : first;
 }
-

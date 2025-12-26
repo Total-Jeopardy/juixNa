@@ -1,9 +1,11 @@
-﻿import 'package:flutter/material.dart';
+﻿import 'dart:async';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:juix_na/app/app_colors.dart';
 import 'package:juix_na/app/theme_controller.dart';
+import 'package:juix_na/core/utils/error_display.dart';
 import 'package:juix_na/features/auth/viewmodel/auth_vm.dart';
 import 'package:juix_na/features/inventory/model/inventory_models.dart';
 import 'package:juix_na/features/inventory/viewmodel/inventory_filters.dart';
@@ -25,9 +27,11 @@ class _InventoryOverviewScreenState
   final TextEditingController _searchController = TextEditingController();
   String _activeFilter = 'All Items';
   int? _selectedItemId;
+  Timer? _searchDebounceTimer;
 
   @override
   void dispose() {
+    _searchDebounceTimer?.cancel();
     _searchController.dispose();
     super.dispose();
   }
@@ -237,6 +241,19 @@ class _InventoryOverviewScreenState
             state: state,
             viewModel: viewModel,
             searchController: _searchController,
+            onSearchChanged: (query) {
+              // Debounce search - apply filter after user stops typing for 500ms
+              _searchDebounceTimer?.cancel();
+              _searchDebounceTimer = Timer(
+                const Duration(milliseconds: 500),
+                () {
+                  final filters = state.filters.copyWith(
+                    search: query.isEmpty ? null : query,
+                  );
+                  viewModel.applyFilters(filters);
+                },
+              );
+            },
           ),
           const SizedBox(height: 18),
           _FilterChipsBar(
@@ -310,11 +327,10 @@ class _InventoryOverviewScreenState
         break;
       case 'Brand':
         // Brand filter not yet supported by API
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Brand filtering is not yet available'),
-            duration: Duration(seconds: 2),
-          ),
+        ErrorDisplay.showSuccess(
+          context,
+          'Brand filtering is not yet available',
+          duration: const Duration(seconds: 2),
         );
         break;
     }
@@ -571,11 +587,13 @@ class _StatusContent extends ConsumerWidget {
   final InventoryOverviewState state;
   final InventoryOverviewViewModel viewModel;
   final TextEditingController searchController;
+  final ValueChanged<String> onSearchChanged;
 
   const _StatusContent({
     required this.state,
     required this.viewModel,
     required this.searchController,
+    required this.onSearchChanged,
   });
 
   @override
@@ -600,14 +618,7 @@ class _StatusContent extends ConsumerWidget {
         const SizedBox(height: 16),
         _SearchField(
           controller: searchController,
-          onSearchChanged: (query) {
-            // Debounce search - apply filter after user stops typing
-            // For now, apply immediately (can add debounce later)
-            final filters = state.filters.copyWith(
-              search: query.isEmpty ? null : query,
-            );
-            viewModel.applyFilters(filters);
-          },
+          onSearchChanged: onSearchChanged,
         ),
         const SizedBox(height: 16),
         _StatsChips(kpis: state.kpis),
