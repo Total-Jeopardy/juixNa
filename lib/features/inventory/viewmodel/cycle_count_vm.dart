@@ -12,6 +12,10 @@ class CycleCountViewModel extends AsyncNotifier<CycleCountState> {
 
   /// Request token to track in-flight requests and ignore stale responses.
   /// Format: "itemId_locationId" or null if no request in flight.
+  /// 
+  /// Prevents race condition: if user switches item/location while a system-quantity
+  /// load is in-flight, the stale response will be ignored and won't overwrite
+  /// the current selection. This eliminates flicker and ensures data consistency.
   String? _currentSystemQuantityRequestToken;
 
   /// Get InventoryRepository from ref (dependency injection).
@@ -147,17 +151,22 @@ class CycleCountViewModel extends AsyncNotifier<CycleCountState> {
         final items = success.data.items;
 
         // Find the selected item in the location items
+        // If item is not found at this location, quantity is 0.0
         final item = items.firstWhere(
           (i) => i.id == itemId,
-          orElse: () => items.firstOrNull ?? const InventoryItem(
-            id: -1,
+          orElse: () => InventoryItem(
+            id: itemId,
             name: '',
             sku: '',
             unit: '',
             kind: ItemKind.finishedProduct,
+            currentStock: 0.0, // Item not found at location = 0 stock
+            totalQuantity: 0.0,
           ),
         );
 
+        // Get system quantity from database: prefer currentStock (location-specific) 
+        // over totalQuantity (all locations), default to 0.0 if both are null
         final systemQuantity = item.currentStock ?? item.totalQuantity ?? 0.0;
 
         // Double-check token before applying (item/location might have changed during processing)
@@ -307,6 +316,12 @@ class CycleCountViewModel extends AsyncNotifier<CycleCountState> {
   /// Adjust stock based on cycle count variance.
   /// Calculates variance (counted - system) and applies it as an adjustment.
   /// Preserves existing state on error.
+  /// 
+  /// Note on persistence: On successful adjustment, the form is reset to initial
+  /// state (clears selected item, location, quantities) but keeps loaded
+  /// locations/items for faster subsequent selections. This is the expected
+  /// behavior for v1. If persistence of last selection is needed in the future,
+  /// we can modify this to preserve selected item/location while clearing quantities.
   Future<bool> adjustStockFromCount() async {
     final currentState = state.value ?? CycleCountState.initial();
 
@@ -394,6 +409,11 @@ class CycleCountViewModel extends AsyncNotifier<CycleCountState> {
   }
 
   /// Reset form to initial state (keeps loaded locations/items).
+  /// 
+  /// Note: After successful stock adjustment, the form is reset to allow
+  /// starting a new cycle count. This is the expected behavior for v1.
+  /// If persistence of last selection is needed in the future, we can
+  /// modify this to preserve selected item/location while clearing quantities.
   void resetForm() {
     final currentState = state.value ?? CycleCountState.initial();
     state = AsyncValue.data(

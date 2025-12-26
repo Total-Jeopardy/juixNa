@@ -1,5 +1,6 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:juix_na/app/app_colors.dart';
 import 'package:juix_na/app/theme_controller.dart';
@@ -36,7 +37,7 @@ class _InventoryOverviewScreenState
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
-    
+
     // Watch ViewModel state
     final overviewState = ref.watch(inventoryOverviewProvider);
     final viewModel = ref.read(inventoryOverviewProvider.notifier);
@@ -51,7 +52,7 @@ class _InventoryOverviewScreenState
         leading: Padding(
           padding: const EdgeInsets.only(left: 16),
           child: InkWell(
-            onTap: () => Navigator.of(context).maybePop(),
+            onTap: () => context.pop(),
             borderRadius: BorderRadius.circular(20),
             child: Container(
               height: 40,
@@ -114,13 +115,11 @@ class _InventoryOverviewScreenState
               final themeMode = ref.watch(themeControllerProvider);
               final themeNotifier = ref.read(themeControllerProvider.notifier);
               final isDarkMode = themeMode == ThemeMode.dark;
-              
+
               return IconButton(
                 tooltip: 'Toggle theme',
                 icon: Icon(
-                  isDarkMode
-                      ? Icons.wb_sunny_rounded
-                      : Icons.nightlight_round,
+                  isDarkMode ? Icons.wb_sunny_rounded : Icons.nightlight_round,
                   color: isDarkMode ? Colors.white : AppColors.deepGreen,
                 ),
                 onPressed: themeNotifier.toggle,
@@ -180,7 +179,7 @@ class _InventoryOverviewScreenState
       ),
       floatingActionButton: FloatingActionButton(
         backgroundColor: AppColors.mango,
-        onPressed: () {},
+        onPressed: () => _showInventoryActionsMenu(context),
         child: const Icon(Icons.add, color: Colors.white),
       ),
       body: SafeArea(
@@ -261,14 +260,17 @@ class _InventoryOverviewScreenState
                 padding: const EdgeInsets.all(32.0),
                 child: Column(
                   children: [
-                    Icon(Icons.inventory_2_outlined,
-                        size: 64, color: AppColors.textMuted),
+                    Icon(
+                      Icons.inventory_2_outlined,
+                      size: 64,
+                      color: AppColors.textMuted,
+                    ),
                     const SizedBox(height: 16),
                     Text(
                       'No items found',
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: AppColors.textMuted,
-                          ),
+                        color: AppColors.textMuted,
+                      ),
                     ),
                   ],
                 ),
@@ -292,7 +294,6 @@ class _InventoryOverviewScreenState
     InventoryOverviewState state,
     InventoryOverviewViewModel viewModel,
   ) {
-
     switch (label) {
       case 'All Items':
         // Clear all filters
@@ -317,6 +318,125 @@ class _InventoryOverviewScreenState
         );
         break;
     }
+  }
+
+  /// Show inventory actions menu (bottom sheet) when FAB is tapped.
+  /// Options: Stock Movement, Cycle Count, Stock Transfer, etc.
+  void _showInventoryActionsMenu(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true, // Allow scrolling when content exceeds screen
+      builder: (context) => Container(
+        constraints: BoxConstraints(
+          maxHeight:
+              MediaQuery.of(context).size.height *
+              0.85, // Max 85% of screen height
+        ),
+        decoration: const BoxDecoration(
+          color: Color(0xFFFFF9F0), // Light cream background
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle bar
+            Container(
+              margin: const EdgeInsets.only(top: 12, bottom: 8),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.borderSoft,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            // Header
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Inventory Actions',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.deepGreen,
+                        fontSize: 20,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: AppColors.deepGreen),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+            ),
+            // Scrollable action items
+            Flexible(
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _InventoryActionItem(
+                      icon: Icons.add_circle_outline,
+                      title: 'Stock Movement',
+                      subtitle: 'Adjust stock in/out',
+                      color: AppColors.mango,
+                      onTap: () {
+                        Navigator.of(context).pop(); // Close bottom sheet
+                        context.push('/inventory/movement');
+                      },
+                    ),
+                    _InventoryActionItem(
+                      icon: Icons.inventory_2_outlined,
+                      title: 'Cycle Count',
+                      subtitle: 'Perform spot count',
+                      color: AppColors.deepGreen,
+                      onTap: () {
+                        Navigator.of(context).pop(); // Close bottom sheet
+                        context.push('/inventory/cycle-count');
+                      },
+                    ),
+                    _InventoryActionItem(
+                      icon: Icons.warning_rounded,
+                      title: 'Reorder Alerts',
+                      subtitle: 'View low stock alerts',
+                      color: AppColors.error,
+                      onTap: () {
+                        Navigator.of(context).pop(); // Close bottom sheet
+                        context.push('/inventory/reorder-alerts');
+                      },
+                    ),
+                    _InventoryActionItem(
+                      icon: Icons.swap_horiz,
+                      title: 'Stock Transfer',
+                      subtitle: 'Transfer between locations',
+                      color: AppColors.deepGreen,
+                      onTap: () {
+                        Navigator.of(context).pop(); // Close bottom sheet
+                        context.push('/inventory/transfer');
+                      },
+                    ),
+                    _InventoryActionItem(
+                      icon: Icons.history,
+                      title: 'Transfer History',
+                      subtitle: 'View transfer records',
+                      color: AppColors.deepGreen,
+                      onTap: () {
+                        Navigator.of(context).pop(); // Close bottom sheet
+                        context.push('/inventory/transfer/history');
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   /// Show kind picker for Category filter.
@@ -349,18 +469,97 @@ class _InventoryOverviewScreenState
                 },
               ),
             ),
-            ...ItemKind.values.map((kind) => ListTile(
-                  title: Text(kind.value.replaceAll('_', ' ')),
-                  leading: Radio<ItemKind?>(
-                    value: kind,
-                    groupValue: state.filters.kind,
-                    onChanged: (value) {
-                      final newFilters = state.filters.copyWith(kind: value);
-                      viewModel.applyFilters(newFilters);
-                      Navigator.pop(context);
-                    },
+            ...ItemKind.values.map(
+              (kind) => ListTile(
+                title: Text(kind.value.replaceAll('_', ' ')),
+                leading: Radio<ItemKind?>(
+                  value: kind,
+                  groupValue: state.filters.kind,
+                  onChanged: (value) {
+                    final newFilters = state.filters.copyWith(kind: value);
+                    viewModel.applyFilters(newFilters);
+                    Navigator.pop(context);
+                  },
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Inventory action item widget for the FAB menu.
+class _InventoryActionItem extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _InventoryActionItem({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.borderSoft, width: 1),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: color, size: 24),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      color: AppColors.deepGreen,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
+                    ),
                   ),
-                )),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      color: AppColors.textMuted,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(
+              Icons.chevron_right,
+              color: AppColors.textMuted,
+              size: 20,
+            ),
           ],
         ),
       ),
@@ -404,7 +603,9 @@ class _StatusContent extends ConsumerWidget {
           onSearchChanged: (query) {
             // Debounce search - apply filter after user stops typing
             // For now, apply immediately (can add debounce later)
-            final filters = state.filters.copyWith(search: query.isEmpty ? null : query);
+            final filters = state.filters.copyWith(
+              search: query.isEmpty ? null : query,
+            );
             viewModel.applyFilters(filters);
           },
         ),
@@ -588,13 +789,15 @@ class _LocationChip extends StatelessWidget {
 
     final selectedLocation = locations.firstWhere(
       (loc) => loc.id == selectedLocationId,
-      orElse: () => locations.firstOrNull ?? Location(
-        id: -1,
-        name: 'All Locations',
-        isActive: true,
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      ),
+      orElse: () =>
+          locations.firstOrNull ??
+          Location(
+            id: -1,
+            name: 'All Locations',
+            isActive: true,
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          ),
     );
 
     final displayName = selectedLocationId == null
@@ -620,7 +823,9 @@ class _LocationChip extends StatelessWidget {
               Text(
                 displayName,
                 style: TextStyle(
-                  color: isDark ? AppColors.darkTextPrimary : AppColors.deepGreen,
+                  color: isDark
+                      ? AppColors.darkTextPrimary
+                      : AppColors.deepGreen,
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                 ),
@@ -658,20 +863,22 @@ class _LocationChip extends StatelessWidget {
                 },
               ),
             ),
-            ...locations.map((location) => ListTile(
-                  title: Text(location.name),
-                  subtitle: location.description != null
-                      ? Text(location.description!)
-                      : null,
-                  leading: Radio<int?>(
-                    value: location.id,
-                    groupValue: selectedLocationId,
-                    onChanged: (value) {
-                      onLocationSelected(value);
-                      Navigator.pop(context);
-                    },
-                  ),
-                )),
+            ...locations.map(
+              (location) => ListTile(
+                title: Text(location.name),
+                subtitle: location.description != null
+                    ? Text(location.description!)
+                    : null,
+                leading: Radio<int?>(
+                  value: location.id,
+                  groupValue: selectedLocationId,
+                  onChanged: (value) {
+                    onLocationSelected(value);
+                    Navigator.pop(context);
+                  },
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -722,10 +929,7 @@ class _SearchField extends StatelessWidget {
   final TextEditingController controller;
   final ValueChanged<String> onSearchChanged;
 
-  const _SearchField({
-    required this.controller,
-    required this.onSearchChanged,
-  });
+  const _SearchField({required this.controller, required this.onSearchChanged});
 
   @override
   Widget build(BuildContext context) {
@@ -775,13 +979,13 @@ class _StatsChips extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     // Format numbers
     final totalQuantity = kpis?.totalQuantityAllLocations ?? 0.0;
     final formattedQuantity = totalQuantity.toStringAsFixed(0);
     final lowStockCount = kpis?.lowStockItems ?? 0;
     final totalItems = kpis?.totalItems ?? 0;
-    
+
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(

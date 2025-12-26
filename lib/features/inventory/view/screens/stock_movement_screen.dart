@@ -2,10 +2,27 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:juix_na/app/app_colors.dart';
-import 'package:juix_na/app/theme_controller.dart';
 import 'package:juix_na/features/inventory/model/inventory_models.dart';
 import 'package:juix_na/features/inventory/viewmodel/stock_movement_state.dart';
 import 'package:juix_na/features/inventory/viewmodel/stock_movement_vm.dart';
+
+/// Stock Movement Screen - Skeleton Framework
+///
+/// Structure based on design:
+/// 1. AppBar (back button, title, theme toggle)
+/// 2. Online Status Indicator
+/// 3. Movement Toggle (Stock-In / Stock-Out)
+/// 4. Form Card
+///    - Date picker
+///    - Product picker
+///    - Batch # field (conditional)
+///    - Quantity field
+///    - Unit Cost + Location (inline row)
+///    - Reason field
+///    - Reference field
+///    - Notes/Reason text area
+/// 5. View Recent Movements link
+/// 6. Footer buttons (Cancel, Save Movement)
 
 class StockMovementScreen extends ConsumerStatefulWidget {
   const StockMovementScreen({super.key});
@@ -16,458 +33,204 @@ class StockMovementScreen extends ConsumerStatefulWidget {
 }
 
 class _StockMovementScreenState extends ConsumerState<StockMovementScreen> {
-  final TextEditingController _notesController = TextEditingController();
-  final TextEditingController _reasonController = TextEditingController();
-  final TextEditingController _referenceController = TextEditingController();
-
-  @override
-  void dispose() {
-    _notesController.dispose();
-    _reasonController.dispose();
-    _referenceController.dispose();
-    super.dispose();
-  }
-
-  /// Update controller text only if the value has changed.
-  /// This prevents cursor jumping on every build.
-  void _updateControllerIfChanged(
-    TextEditingController controller,
-    String newValue,
-  ) {
-    if (controller.text != newValue) {
-      final selection = controller.selection;
-      controller.text = newValue;
-      // Restore selection if it was valid, otherwise place at end
-      if (selection.isValid && selection.end <= newValue.length) {
-        controller.selection = selection;
-      } else {
-        controller.selection = TextSelection.collapsed(offset: newValue.length);
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    // Watch ViewModel state
-    final movementState = ref.watch(stockMovementProvider);
-    final viewModel = ref.read(stockMovementProvider.notifier);
-
-    return movementState.when(
-      data: (state) => _buildContent(context, state, viewModel),
-      loading: () =>
-          const Scaffold(body: Center(child: CircularProgressIndicator())),
-      error: (error, stack) => Scaffold(
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.error_outline, size: 48, color: AppColors.error),
-              const SizedBox(height: 16),
-              Text('Error: ${error.toString()}'),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () => viewModel.clearError(),
-                child: const Text('Retry'),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildContent(
-    BuildContext context,
-    StockMovementState state,
-    StockMovementViewModel viewModel,
-  ) {
-    // Update controllers only when state values change (not on every build)
-    _updateControllerIfChanged(_reasonController, state.reason);
-    _updateControllerIfChanged(_referenceController, state.reference ?? '');
-    _updateControllerIfChanged(_notesController, state.note ?? '');
-
-    final dateLabel = DateFormat('MM/dd/yyyy').format(state.date);
-    final exceeds = state.quantityExceedsAvailable;
-    final enabled = state.isValid && !state.isSubmitting;
-
     return Scaffold(
-      backgroundColor: const Color(0xFFFDF7EE),
+      backgroundColor: const Color(0xFFFDF7EE), // Light cream background
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _Header(online: true),
+              // TODO: 1. AppBar (back button, title, theme toggle)
+              _AppBar(),
+
               const SizedBox(height: 12),
-              _MovementToggle(
-                movement: state.movementType,
-                onChanged: (m) => viewModel.setMovementType(m),
-              ),
+
+              // TODO: 2. Online Status Indicator
+              Center(child: _OnlineStatusIndicator()),
+
+              const SizedBox(height: 12),
+
+              // TODO: 3. Movement Toggle (Stock-In / Stock-Out)
+              _MovementToggle(),
+
               const SizedBox(height: 16),
-              if (state.error != null) ...[
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  margin: const EdgeInsets.only(bottom: 16),
-                  decoration: BoxDecoration(
-                    color: AppColors.errorSoft,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.error),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.error_outline, color: AppColors.error),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          state.error!,
-                          style: const TextStyle(
-                            color: AppColors.error,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.close, size: 18),
-                        color: AppColors.error,
-                        onPressed: () => viewModel.clearError(),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+
+              // TODO: 4. Form Card
               _FormCard(
                 children: [
-                  _PickerField(
-                    label: 'Date',
-                    value: dateLabel,
-                    icon: Icons.calendar_today_outlined,
-                    onTap: () async {
-                      final picked = await showDatePicker(
-                        context: context,
-                        initialDate: state.date,
-                        firstDate: DateTime(2020),
-                        lastDate: DateTime.now().add(const Duration(days: 365)),
-                      );
-                      if (picked != null) {
-                        viewModel.setDate(picked);
-                      }
-                    },
-                  ),
-                  _PickerField(
-                    label: 'Product',
-                    value: state.selectedItem?.name ?? 'Select product',
-                    icon: Icons.expand_more_rounded,
-                    onTap: state.isLoadingItems
-                        ? null
-                        : () => _showProductPicker(context, state, viewModel),
-                    isLoading: state.isLoadingItems,
-                  ),
-                  if (state.selectedItem != null &&
-                      state.selectedLocationId != null) ...[
-                    if (state.isLoadingAvailableStock)
-                      const Padding(
-                        padding: EdgeInsets.all(16.0),
-                        child: Center(child: CircularProgressIndicator()),
-                      )
-                    else
-                      _QuantityField(
-                        value: state.quantity.toInt(),
-                        available: state.availableStock?.toInt() ?? 0,
-                        exceeds: exceeds,
-                        onChange: (v) => viewModel.setQuantity(v.toDouble()),
-                        errorText: state.quantityError,
-                      ),
-                  ],
+                  // Date picker
+                  _DateField(),
+
+                  // Product picker
+                  _ProductField(),
+
+                  // Batch # field (conditional - only for batch-tracked products)
+                  _BatchField(),
+
+                  // Quantity field
+                  _QuantityField(),
                   const SizedBox(height: 12),
-                  _PickerField(
-                    label: 'Location',
-                    value: state.selectedLocation?.name ?? 'Select location',
-                    icon: Icons.expand_more_rounded,
-                    onTap: state.isLoadingLocations
-                        ? null
-                        : () => _showLocationPicker(context, state, viewModel),
-                    isLoading: state.isLoadingLocations,
-                  ),
+
+                  // Unit Cost + Location (inline row)
+                  _UnitCostLocationRow(),
+
                   const SizedBox(height: 12),
-                  TextField(
-                    controller: _reasonController,
-                    decoration: InputDecoration(
-                      labelText: 'Reason *',
-                      hintText: 'e.g., SALE, BREAKAGE, ADJUSTMENT',
-                      errorText: state.fieldErrors['reason'],
-                    ),
-                    onChanged: (value) => viewModel.setReason(value),
-                    enabled: !state.isSubmitting,
-                  ),
+
+                  // Notes / Reason field
+                  _NotesReasonField(),
+
                   const SizedBox(height: 12),
-                  TextField(
-                    controller: _referenceController,
-                    decoration: InputDecoration(
-                      labelText: 'Reference (optional)',
-                      hintText: 'e.g., SALE-2025-001',
-                      errorText: state.fieldErrors['reference'],
-                    ),
-                    onChanged: (value) =>
-                        viewModel.setReference(value.isEmpty ? null : value),
-                    enabled: !state.isSubmitting,
-                  ),
+
+                  // View Recent Movements link
+                  _ViewRecentMovementsLink(),
+
                   const SizedBox(height: 12),
-                  _NotesField(
-                    controller: _notesController,
-                    onChanged: (value) =>
-                        viewModel.setNote(value.isEmpty ? null : value),
-                    enabled: !state.isSubmitting,
-                  ),
+
+                  // TODO: Reference field
+                  _ReferenceField(),
                 ],
               ),
+
               const SizedBox(height: 18),
-              _Footer(
-                enabled: enabled,
-                isLoading: state.isSubmitting,
-                onCancel: () => Navigator.of(context).maybePop(),
-                onSave: () async {
-                  await viewModel.createStockMovement();
-                  if (mounted) {
-                    final newState = ref.read(stockMovementProvider).value;
-                    if (newState?.isValid == true && newState?.error == null) {
-                      Navigator.of(context).maybePop();
-                    }
-                  }
-                },
-              ),
+
+              // TODO: 6. Footer buttons (Cancel, Save Movement)
+              _FooterButtons(),
             ],
           ),
         ),
       ),
     );
   }
-
-  // Helper methods for pickers
-  void _showProductPicker(
-    BuildContext context,
-    StockMovementState state,
-    StockMovementViewModel viewModel,
-  ) {
-    // Load products if not already loaded
-    if (state.availableItems.isEmpty && !state.isLoadingItems) {
-      viewModel.loadProducts();
-    }
-
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(16),
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.7,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Select Product',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 16),
-            if (state.isLoadingItems)
-              const Center(child: CircularProgressIndicator())
-            else if (state.availableItems.isEmpty)
-              const Padding(
-                padding: EdgeInsets.all(32.0),
-                child: Text('No products available'),
-              )
-            else
-              Flexible(
-                child: ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: state.availableItems.length,
-                  itemBuilder: (context, index) {
-                    final item = state.availableItems[index];
-                    return ListTile(
-                      title: Text(item.name),
-                      subtitle: Text('SKU: ${item.sku}'),
-                      trailing: Text(
-                        '${item.totalQuantity ?? item.currentStock ?? 0.0} ${item.unit}',
-                        style: const TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                      onTap: () {
-                        viewModel.selectItem(item);
-                        Navigator.pop(context);
-                      },
-                    );
-                  },
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showLocationPicker(
-    BuildContext context,
-    StockMovementState state,
-    StockMovementViewModel viewModel,
-  ) {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Select Location',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 16),
-            if (state.availableLocations.isEmpty)
-              const Padding(
-                padding: EdgeInsets.all(32.0),
-                child: Text('No locations available'),
-              )
-            else
-              ListView.builder(
-                shrinkWrap: true,
-                itemCount: state.availableLocations.length,
-                itemBuilder: (context, index) {
-                  final location = state.availableLocations[index];
-                  return ListTile(
-                    title: Text(location.name),
-                    subtitle: location.description != null
-                        ? Text(location.description!)
-                        : null,
-                    leading: Radio<int?>(
-                      value: location.id,
-                      groupValue: state.selectedLocationId,
-                      onChanged: (value) {
-                        viewModel.selectLocation(value);
-                        Navigator.pop(context);
-                      },
-                    ),
-                  );
-                },
-              ),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
-class _Header extends ConsumerWidget {
-  final bool online;
-  const _Header({required this.online});
+// ============================================================================
+// PLACEHOLDER WIDGETS - To be implemented step by step
+// ============================================================================
+
+class _AppBar extends StatelessWidget {
+  const _AppBar();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final themeNotifier = ref.read(themeControllerProvider.notifier);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+  Widget build(BuildContext context) {
+    return Row(
       children: [
-        Row(
-          children: [
-            IconButton(
-              onPressed: () => Navigator.of(context).maybePop(),
-              icon: Icon(
-                Icons.arrow_back,
-                color: isDark ? Colors.white : AppColors.deepGreen,
-              ),
-            ),
-            const SizedBox(width: 4),
-            const Expanded(
-              child: Text(
-                'Stock Movement',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.deepGreen,
-                ),
-              ),
-            ),
-            // Online status indicator (informational only - no sync needed for online-only app)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              decoration: BoxDecoration(
-                color: online ? AppColors.successSoft : AppColors.errorSoft,
-                borderRadius: BorderRadius.circular(50),
-                border: Border.all(
-                  color: online
-                      ? AppColors.success.withOpacity(0.3)
-                      : AppColors.error.withOpacity(0.3),
-                ),
-              ),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    radius: 4,
-                    backgroundColor: online
-                        ? AppColors.success
-                        : AppColors.error,
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    online ? 'Online' : 'Offline',
-                    style: TextStyle(
-                      color: online ? AppColors.success : AppColors.error,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 4),
-            IconButton(
-              icon: Icon(
-                isDark ? Icons.wb_sunny_rounded : Icons.nightlight_round,
-                color: AppColors.deepGreen,
-              ),
-              onPressed: themeNotifier.toggle,
-            ),
-          ],
+        // Back button (left arrow)
+        IconButton(
+          onPressed: () => Navigator.of(context).maybePop(),
+          icon: const Icon(Icons.arrow_back, color: AppColors.deepGreen),
         ),
-        // Connectivity status (informational only - app requires online connection)
-        if (!online) ...[
-          const SizedBox(height: 10),
-          _InfoPill(
-            icon: Icons.wifi_off,
-            text: 'No internet connection - Please check your network',
-            background: AppColors.errorSoft,
-            iconColor: AppColors.error,
+
+        // Title (centered)
+        const Expanded(
+          child: Text(
+            'Stock Movement',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+              color: AppColors.deepGreen,
+            ),
           ),
-        ],
+        ),
+
+        // refresh button (right side)
+        Container(
+          margin: const EdgeInsets.only(right: 8),
+          decoration: BoxDecoration(
+            color: AppColors.mangoLight.withValues(
+              alpha: 0.2,
+            ), // Light orange background
+            borderRadius: BorderRadius.circular(20), // Pill shape
+          ),
+          child: TextButton.icon(
+            onPressed: () {
+              // TODO: Implement sync functionality
+            },
+            label: const Text(
+              'Refresh',
+              style: TextStyle(
+                color: AppColors.mango,
+                fontWeight: FontWeight.w700,
+                fontSize: 14,
+              ),
+            ),
+            icon: const Icon(Icons.sync, color: AppColors.mango, size: 18),
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+          ),
+        ),
       ],
     );
   }
 }
 
-class _MovementToggle extends StatelessWidget {
-  final StockMovementType movement;
-  final ValueChanged<StockMovementType> onChanged;
-  const _MovementToggle({required this.movement, required this.onChanged});
+class _OnlineStatusIndicator extends StatelessWidget {
+  const _OnlineStatusIndicator();
 
   @override
   Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final timeStr = DateFormat('h:mm a').format(now);
+
     return Container(
-      height: 46,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFFE9DDCC),
-        borderRadius: BorderRadius.circular(999),
+        color: Colors.white, // Light off-white background
+        borderRadius: BorderRadius.circular(20), // Pill shape
+        border: Border.all(color: AppColors.borderSoft, width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Row(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          _Segment(
-            label: 'Stock-In',
-            selected: movement == StockMovementType.stockIn,
-            onTap: () => onChanged(StockMovementType.stockIn),
+          // Wi-Fi icon (green)
+          Icon(
+            Icons.wifi,
+            size: 16,
+            color: AppColors.success, // Green color
           ),
-          _Segment(
-            label: 'Stock-Out',
-            selected: movement == StockMovementType.stockOut,
-            onTap: () => onChanged(StockMovementType.stockOut),
+          const SizedBox(width: 8),
+          // "ONLINE" text
+          const Text(
+            'ONLINE',
+            style: TextStyle(
+              color: AppColors.deepGreen,
+              fontWeight: FontWeight.w700,
+              fontSize: 12,
+            ),
+          ),
+          const SizedBox(width: 6),
+          // Bullet point separator
+          Container(
+            width: 4,
+            height: 4,
+            decoration: const BoxDecoration(
+              color: AppColors.deepGreen,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 6),
+          // "LAST REFRESHED: [time]" text
+          Text(
+            'LAST REFRESHED: $timeStr',
+            style: const TextStyle(
+              color: AppColors.deepGreen,
+              fontWeight: FontWeight.w600,
+              fontSize: 12,
+            ),
           ),
         ],
       ),
@@ -475,46 +238,123 @@ class _MovementToggle extends StatelessWidget {
   }
 }
 
-class _Segment extends StatelessWidget {
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-  const _Segment({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
+class _MovementToggle extends ConsumerWidget {
+  const _MovementToggle();
 
   @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Padding(
-        padding: const EdgeInsets.all(4),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          decoration: BoxDecoration(
-            gradient: selected ? AppGradients.primary : null,
-            color: selected ? null : Colors.transparent,
-            borderRadius: BorderRadius.circular(999),
-          ),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(999),
-            onTap: onTap,
-            child: Center(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    color: selected ? Colors.white : AppColors.textMuted,
-                  ),
-                ),
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(stockMovementProvider);
+    final viewModel = ref.read(stockMovementProvider.notifier);
+
+    return state.when(
+      data: (movementState) {
+        final isStockOut =
+            movementState.movementType == StockMovementType.stockOut;
+
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final halfWidth = constraints.maxWidth / 2;
+
+            return Container(
+              height: 46,
+              decoration: BoxDecoration(
+                color: const Color(0xFFE9DDCC), // Light beige/cream background
+                borderRadius: BorderRadius.circular(999), // Fully rounded ends
               ),
-            ),
-          ),
-        ),
+              child: Stack(
+                children: [
+                  // Animated orange selector thumb
+                  AnimatedPositioned(
+                    duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeInOut,
+                    left: isStockOut ? halfWidth : 4,
+                    right: isStockOut ? 4 : halfWidth,
+                    top: 4,
+                    bottom: 4,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [
+                            AppColors.mangoGradientStart,
+                            AppColors.mangoGradientEnd,
+                          ],
+                          begin: Alignment.centerLeft,
+                          end: Alignment.centerRight,
+                        ),
+                        borderRadius: BorderRadius.circular(999),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.mango.withOpacity(0.3),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  // Text labels
+                  Row(
+                    children: [
+                      // Stock-In (left)
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () {
+                            viewModel.setMovementType(
+                              StockMovementType.stockIn,
+                            );
+                          },
+                          child: Center(
+                            child: Text(
+                              'Stock-In',
+                              style: TextStyle(
+                                color: isStockOut
+                                    ? AppColors
+                                          .deepGreen // Dark text when unselected
+                                    : Colors.white, // White text when selected
+                                fontWeight: FontWeight.w700,
+                                fontSize: 15,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      // Stock-Out (right)
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () {
+                            viewModel.setMovementType(
+                              StockMovementType.stockOut,
+                            );
+                          },
+                          child: Center(
+                            child: Text(
+                              'Stock-Out',
+                              style: TextStyle(
+                                color: isStockOut
+                                    ? Colors
+                                          .white // White text when selected
+                                    : AppColors
+                                          .deepGreen, // Dark text when unselected
+                                fontWeight: FontWeight.w700,
+                                fontSize: 15,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+      loading: () => const SizedBox(
+        height: 46,
+        child: Center(child: CircularProgressIndicator()),
       ),
+      error: (_, __) => const SizedBox(height: 46),
     );
   }
 }
@@ -525,537 +365,1359 @@ class _FormCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isDark ? AppColors.darkSurface : Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: const [
+        color: const Color(0xFFFFF9F0), // Light cream/off-white background
+        borderRadius: BorderRadius.circular(24), // Rounded corners
+        boxShadow: [
           BoxShadow(
-            color: AppColors.shadowSoft,
-            blurRadius: 14,
-            offset: Offset(0, 6),
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       child: Column(children: children),
     );
   }
 }
 
-class _PickerField extends StatelessWidget {
-  final String label;
-  final String value;
-  final IconData icon;
-  final VoidCallback? onTap;
-  final bool isLoading;
-
-  const _PickerField({
-    required this.label,
-    required this.value,
-    required this.icon,
-    required this.onTap,
-    this.isLoading = false,
-  });
+class _DateField extends ConsumerWidget {
+  const _DateField();
 
   @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
-              fontWeight: FontWeight.w700,
-              fontSize: 12,
-            ),
-          ),
-          const SizedBox(height: 8),
-          InkWell(
-            onTap: isLoading ? null : onTap,
-            borderRadius: BorderRadius.circular(16),
-            child: Container(
-              height: 54,
-              decoration: BoxDecoration(
-                color: isDark ? AppColors.darkSurface : Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: isDark
-                      ? AppColors.borderSubtle.withOpacity(0.3)
-                      : AppColors.borderSoft,
-                ),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: isLoading
-                        ? const Center(child: CircularProgressIndicator())
-                        : Text(
-                            value,
-                            style: TextStyle(
-                              color: isDark
-                                  ? AppColors.darkTextPrimary
-                                  : AppColors.deepGreen,
-                              fontWeight: FontWeight.w800,
-                              fontSize: 15,
-                            ),
-                          ),
-                  ),
-                  Icon(icon, color: AppColors.mango),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(stockMovementProvider);
+    final viewModel = ref.read(stockMovementProvider.notifier);
 
-class _BatchField extends StatelessWidget {
-  final String? value;
-  final bool required;
-  final VoidCallback onTap;
-  final String? errorText;
-  final String? helper;
-  const _BatchField({
-    required this.value,
-    required this.required,
-    required this.onTap,
-    this.errorText,
-    this.helper,
-  });
+    return state.when(
+      data: (movementState) {
+        final dateLabel = DateFormat('MM/dd/yyyy').format(movementState.date);
 
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final hasError = errorText != null;
-    final borderColor = hasError
-        ? AppColors.error
-        : isDark
-        ? AppColors.borderSubtle.withOpacity(0.3)
-        : AppColors.borderSoft;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Batch #',
+              // Label
+              const Text(
+                'Date',
                 style: TextStyle(
-                  color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+                  color: AppColors.deepGreen,
                   fontWeight: FontWeight.w700,
-                  fontSize: 12,
+                  fontSize: 16,
                 ),
               ),
-              const SizedBox(width: 6),
-              Text(
-                required ? 'Required' : 'Optional',
-                style: TextStyle(
-                  color: hasError ? AppColors.error : AppColors.textMuted,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 11,
+              const SizedBox(height: 6),
+              // Input field
+              InkWell(
+                onTap: () async {
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate: movementState.date,
+                    firstDate: DateTime(2020),
+                    lastDate: DateTime.now().add(const Duration(days: 365)),
+                  );
+                  if (picked != null) {
+                    viewModel.setDate(picked);
+                  }
+                },
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  height: 54,
+                  decoration: BoxDecoration(
+                    color: Colors.white, // White background
+                    borderRadius: BorderRadius.circular(23), // Rounded corners
+                    border: Border.all(
+                      color: AppColors.mangoLight, // Light orange border
+                      width: 1,
+                    ),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  child: Row(
+                    children: [
+                      // Date text
+                      Expanded(
+                        child: Text(
+                          dateLabel,
+                          style: const TextStyle(
+                            color: AppColors.deepGreen,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 15,
+                          ),
+                        ),
+                      ),
+                      // Calendar icon (orange)
+                      const Icon(
+                        Icons.calendar_today_outlined,
+                        color: AppColors.mango,
+                        size: 20,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          InkWell(
-            onTap: onTap,
-            borderRadius: BorderRadius.circular(16),
-            child: Container(
-              height: 54,
-              decoration: BoxDecoration(
-                color: isDark ? AppColors.darkSurface : Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: borderColor, width: 1.2),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      value ?? 'Select Batch',
-                      style: TextStyle(
-                        color: hasError
-                            ? AppColors.error
-                            : isDark
-                            ? AppColors.darkTextPrimary
-                            : AppColors.deepGreen,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                  Icon(
-                    hasError ? Icons.error_outline : Icons.expand_more_rounded,
-                    color: hasError ? AppColors.error : AppColors.mango,
-                  ),
-                ],
-              ),
-            ),
-          ),
-          if (hasError) ...[
-            const SizedBox(height: 6),
-            Text(
-              errorText!,
-              style: const TextStyle(
-                color: AppColors.error,
-                fontWeight: FontWeight.w700,
-                fontSize: 12,
-              ),
-            ),
-          ],
-          if (helper != null) ...[
-            const SizedBox(height: 4),
-            Text(
-              helper!,
-              style: const TextStyle(
-                color: AppColors.error,
-                fontWeight: FontWeight.w600,
-                fontSize: 12,
-              ),
-            ),
-          ],
-        ],
+        );
+      },
+      loading: () => const SizedBox(
+        height: 80,
+        child: Center(child: CircularProgressIndicator()),
       ),
+      error: (_, __) => const SizedBox(height: 80),
     );
   }
 }
 
-class _QuantityField extends StatelessWidget {
-  final int value;
-  final int available;
-  final bool exceeds;
-  final ValueChanged<int> onChange;
-  final String? errorText;
+class _ProductField extends ConsumerWidget {
+  const _ProductField();
 
-  const _QuantityField({
-    required this.value,
-    required this.available,
-    required this.exceeds,
-    required this.onChange,
-    this.errorText,
-  });
+  Future<void> _showProductPicker(
+    BuildContext context,
+    StockMovementState state,
+    StockMovementViewModel viewModel,
+  ) async {
+    if (state.isLoadingItems) return;
+
+    // Load products if not already loaded
+    if (state.availableItems.isEmpty && !state.isLoadingItems) {
+      viewModel.loadProducts();
+    }
+
+    final selected = await showModalBottomSheet<InventoryItem?>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.7,
+        ),
+        decoration: const BoxDecoration(
+          color: Color(0xFFFFF9F0), // Light cream background
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle bar
+            Container(
+              margin: const EdgeInsets.only(top: 12, bottom: 8),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.borderSoft,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            // Header
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Select Product',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.deepGreen,
+                        fontSize: 20,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: AppColors.deepGreen),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+            ),
+            // Content
+            if (state.isLoadingItems)
+              const Padding(
+                padding: EdgeInsets.all(32.0),
+                child: CircularProgressIndicator(color: AppColors.mango),
+              )
+            else if (state.availableItems.isEmpty)
+              Padding(
+                padding: const EdgeInsets.all(32.0),
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.inventory_2_outlined,
+                      size: 48,
+                      color: AppColors.textMuted,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'No products available',
+                      style: TextStyle(
+                        color: AppColors.textMuted,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else
+              Flexible(
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  itemCount: state.availableItems.length,
+                  separatorBuilder: (context, index) => const Divider(
+                    height: 1,
+                    thickness: 1,
+                    color: AppColors.borderSoft,
+                  ),
+                  itemBuilder: (context, index) {
+                    final item = state.availableItems[index];
+                    return InkWell(
+                      onTap: () => Navigator.of(context).pop(item),
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 16,
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 48,
+                              height: 48,
+                              decoration: BoxDecoration(
+                                color: AppColors.mangoLight.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Icon(
+                                Icons.inventory_2_rounded,
+                                color: AppColors.mango,
+                                size: 24,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    item.name,
+                                    style: const TextStyle(
+                                      color: AppColors.deepGreen,
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                  if (item.sku.isNotEmpty) ...[
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      item.sku,
+                                      style: const TextStyle(
+                                        color: AppColors.textMuted,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                            const Icon(
+                              Icons.chevron_right,
+                              color: AppColors.textMuted,
+                              size: 20,
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+
+    if (selected != null) {
+      viewModel.selectItem(selected);
+    }
+  }
 
   @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final borderColor = exceeds
-        ? AppColors.error
-        : isDark
-        ? AppColors.borderSubtle.withOpacity(0.3)
-        : AppColors.borderSoft;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(stockMovementProvider);
+    final viewModel = ref.read(stockMovementProvider.notifier);
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Quantity',
-            style: TextStyle(
-              color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
-              fontWeight: FontWeight.w700,
-              fontSize: 12,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Container(
-            height: 58,
-            decoration: BoxDecoration(
-              color: isDark ? AppColors.darkSurface : Colors.white,
-              borderRadius: BorderRadius.circular(999),
-              border: Border.all(color: borderColor, width: 1.2),
-            ),
-            child: Row(
-              children: [
-                const SizedBox(width: 6),
-                _CircleButton(
-                  icon: Icons.remove,
-                  onTap: () => onChange((value - 1).clamp(0, 9999)),
-                ),
-                Expanded(
-                  child: Text(
-                    value.toString(),
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 20,
-                      color: isDark
-                          ? AppColors.darkTextPrimary
-                          : AppColors.deepGreen,
-                    ),
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
-                  ),
-                  decoration: BoxDecoration(
-                    color: isDark ? AppColors.darkPill : AppColors.surfaceMuted,
-                    borderRadius: BorderRadius.circular(18),
-                  ),
-                  child: const Text(
-                    'Units',
-                    style: TextStyle(
-                      color: AppColors.textMuted,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-                _CircleButton(
-                  icon: Icons.add,
-                  fill: true,
-                  onTap: () => onChange((value + 1).clamp(0, 9999)),
-                ),
-                const SizedBox(width: 6),
-              ],
-            ),
-          ),
-          const SizedBox(height: 6),
-          Row(
+    return state.when(
+      data: (movementState) {
+        final productName =
+            movementState.selectedItem?.name ?? 'Select product';
+
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (exceeds)
+              // Label
+              const Text(
+                'Product',
+                style: TextStyle(
+                  color: AppColors.deepGreen,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 16,
+                ),
+              ),
+              const SizedBox(height: 6),
+              // Input field - Product card style when selected
+              InkWell(
+                onTap: movementState.isLoadingItems
+                    ? null
+                    : () =>
+                          _showProductPicker(context, movementState, viewModel),
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  height: movementState.selectedItem != null ? 80 : 54,
+                  decoration: BoxDecoration(
+                    color: Colors.white, // White background
+                    borderRadius: BorderRadius.circular(23), // Rounded corners
+                    border: Border.all(
+                      color: AppColors.mangoLight, // Light orange border
+                      width: 1,
+                    ),
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
+                  child: movementState.selectedItem != null
+                      ? Row(
+                          children: [
+                            // Product image thumbnail (or placeholder)
+                            Container(
+                              width: 56,
+                              height: 56,
+                              decoration: BoxDecoration(
+                                color: AppColors.mangoLight.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: AppColors.borderSoft,
+                                  width: 1,
+                                ),
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(11),
+                                child:
+                                    movementState.selectedItem != null &&
+                                        movementState
+                                            .selectedItem!
+                                            .sku
+                                            .isNotEmpty
+                                    ? // TODO: Replace with actual image URL when available
+                                      // For now, show a placeholder with product icon
+                                      Container(
+                                        color: AppColors.mangoLight.withOpacity(
+                                          0.2,
+                                        ),
+                                        child: const Icon(
+                                          Icons.inventory_2_rounded,
+                                          color: AppColors.mango,
+                                          size: 28,
+                                        ),
+                                      )
+                                    : Container(
+                                        color: AppColors.mangoLight.withOpacity(
+                                          0.2,
+                                        ),
+                                        child: const Icon(
+                                          Icons.inventory_2_rounded,
+                                          color: AppColors.mango,
+                                          size: 28,
+                                        ),
+                                      ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            // Product details
+                            Expanded(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // Product name
+                                  Text(
+                                    movementState.selectedItem!.name,
+                                    style: const TextStyle(
+                                      color: AppColors.deepGreen,
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 16,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  const SizedBox(height: 4),
+                                  // SKU and unit
+                                  Text(
+                                    'SKU: ${movementState.selectedItem!.sku} • ${movementState.selectedItem!.unit}',
+                                    style: const TextStyle(
+                                      color: AppColors.textMuted,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            // Chevron icon
+                            const Icon(
+                              Icons.chevron_right,
+                              color: AppColors.textMuted,
+                              size: 20,
+                            ),
+                          ],
+                        )
+                      : Row(
+                          children: [
+                            // Placeholder text
+                            Expanded(
+                              child: Text(
+                                productName,
+                                style: TextStyle(
+                                  color: AppColors.textMuted,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 15,
+                                ),
+                              ),
+                            ),
+                            // Dropdown icon (orange)
+                            if (movementState.isLoadingItems)
+                              const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: AppColors.mango,
+                                ),
+                              )
+                            else
+                              const Icon(
+                                Icons.expand_more_rounded,
+                                color: AppColors.mango,
+                                size: 24,
+                              ),
+                          ],
+                        ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+      loading: () => const SizedBox(
+        height: 80,
+        child: Center(child: CircularProgressIndicator()),
+      ),
+      error: (_, __) => const SizedBox(height: 80),
+    );
+  }
+}
+
+class _BatchField extends ConsumerWidget {
+  const _BatchField();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(stockMovementProvider);
+
+    return state.when(
+      data: (movementState) {
+        // Show batch field only if product is selected
+        // In the future, check if product.requiresBatch
+        final requiresBatch = movementState.selectedItem != null;
+        // For now, assume batch is required if product is selected and not filled
+        // TODO: Add batchNumber to StockMovementState
+        final batchNumber = null; // movementState.batchNumber;
+        final hasError = requiresBatch && batchNumber == null;
+        final batchValue = batchNumber ?? 'Select Batch';
+
+        // Always show the field for now (will be conditional based on product batch-tracking requirement)
+        // if (!requiresBatch) {
+        //   return const SizedBox.shrink(); // Hide if no product selected
+        // }
+
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Label with "Required" indicator
+              Row(
+                children: [
+                  const Text(
+                    'Batch #',
+                    style: TextStyle(
+                      color: AppColors.deepGreen,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Required',
+                    style: TextStyle(
+                      color: hasError ? AppColors.error : AppColors.textMuted,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              // Input field
+              InkWell(
+                onTap: () {
+                  // TODO: Show batch picker
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Batch picker will be implemented'),
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                },
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  height: 54,
+                  decoration: BoxDecoration(
+                    color: Colors.white, // White background
+                    borderRadius: BorderRadius.circular(23), // Rounded corners
+                    border: Border.all(
+                      color: hasError
+                          ? AppColors
+                                .error // Red border when error
+                          : AppColors.mangoLight, // Light orange border
+                      width: hasError ? 1.2 : 1,
+                    ),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  child: Row(
+                    children: [
+                      // Batch text
+                      Expanded(
+                        child: Text(
+                          batchValue,
+                          style: TextStyle(
+                            color: batchNumber != null
+                                ? AppColors.deepGreen
+                                : AppColors.textMuted,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 15,
+                          ),
+                        ),
+                      ),
+                      // Error icon or dropdown
+                      if (hasError)
+                        Container(
+                          width: 24,
+                          height: 24,
+                          decoration: const BoxDecoration(
+                            color: AppColors.error,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.error_outline,
+                            color: Colors.white,
+                            size: 16,
+                          ),
+                        )
+                      else
+                        const Icon(
+                          Icons.expand_more_rounded,
+                          color: AppColors.mango,
+                          size: 24,
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+              // Error messages
+              if (hasError) ...[
+                const SizedBox(height: 6),
                 const Text(
-                  'Exceeds available stock',
+                  'Batch selection is required.',
                   style: TextStyle(
                     color: AppColors.error,
                     fontWeight: FontWeight.w700,
                     fontSize: 12,
                   ),
                 ),
-              const Spacer(),
-              Text(
-                'Available: $available',
-                style: TextStyle(
-                  color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 12,
+                const SizedBox(height: 2),
+                Text(
+                  'This product is batch-tracked.',
+                  style: TextStyle(
+                    color: AppColors.textMuted,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                  ),
                 ),
-              ),
+              ],
             ],
           ),
-        ],
-      ),
+        );
+      },
+      loading: () => const SizedBox(height: 80),
+      error: (_, __) => const SizedBox(height: 80),
     );
   }
 }
 
-class _InlineRow extends StatelessWidget {
-  final Widget left;
-  final Widget right;
-  const _InlineRow({required this.left, required this.right});
+class _QuantityField extends ConsumerWidget {
+  const _QuantityField();
 
   @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          Expanded(child: left),
-          const SizedBox(width: 12),
-          Expanded(child: right),
-        ],
-      ),
-    );
-  }
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(stockMovementProvider);
+    final viewModel = ref.read(stockMovementProvider.notifier);
 
-class _ChipField extends StatelessWidget {
-  final String label;
-  final String value;
-  final IconData icon;
-  final bool locked;
-  final String? caption;
-  const _ChipField({
-    required this.label,
-    required this.value,
-    required this.icon,
-    this.locked = false,
-    this.caption,
-  });
+    return state.when(
+      data: (movementState) {
+        // Always show quantity field for now (will be conditional based on product selection)
+        // if (movementState.selectedItem == null) {
+        //   return const SizedBox.shrink();
+        // }
 
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
-            fontWeight: FontWeight.w700,
-            fontSize: 12,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Container(
-          height: 54,
-          decoration: BoxDecoration(
-            color: isDark ? AppColors.darkSurface : Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: isDark
-                  ? AppColors.borderSubtle.withOpacity(0.3)
-                  : AppColors.borderSoft,
-            ),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          child: Row(
-            children: [
-              Icon(icon, size: 18, color: AppColors.textMuted),
-              const SizedBox(width: 10),
-              Text(
-                value,
-                style: TextStyle(
-                  color: isDark
-                      ? AppColors.darkTextPrimary
-                      : AppColors.deepGreen,
-                  fontWeight: FontWeight.w800,
+        // Show loading while fetching available stock
+        if (movementState.isLoadingAvailableStock) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Quantity',
+                  style: TextStyle(
+                    color: AppColors.deepGreen,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 16,
+                  ),
                 ),
-              ),
-              const Spacer(),
-              if (locked)
-                const Icon(
-                  Icons.lock_outline,
-                  size: 16,
-                  color: AppColors.textMuted,
-                ),
-            ],
-          ),
-        ),
-        if (caption != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 6),
-            child: Text(
-              caption!,
-              style: const TextStyle(
-                color: AppColors.textMuted,
-                fontWeight: FontWeight.w700,
-                fontSize: 11,
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-}
-
-class _NotesField extends StatelessWidget {
-  final TextEditingController controller;
-  final ValueChanged<String>? onChanged;
-  final bool enabled;
-
-  const _NotesField({
-    required this.controller,
-    this.onChanged,
-    this.enabled = true,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Notes / Reason',
-          style: TextStyle(
-            color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
-            fontWeight: FontWeight.w700,
-            fontSize: 12,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Container(
-          decoration: BoxDecoration(
-            color: isDark ? AppColors.darkSurface : Colors.white,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(
-              color: isDark
-                  ? AppColors.borderSubtle.withOpacity(0.3)
-                  : AppColors.borderSoft,
-            ),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          child: ValueListenableBuilder<TextEditingValue>(
-            valueListenable: controller,
-            builder: (_, value, __) {
-              return Column(
-                children: [
-                  TextField(
-                    controller: controller,
-                    onChanged: onChanged,
-                    enabled: enabled,
-                    maxLines: 5,
-                    maxLength: 250,
-                    decoration: const InputDecoration(
-                      border: InputBorder.none,
-                      counterText: '',
-                      hintText: 'Describe the reason for stock adjustment...',
+                const SizedBox(height: 6),
+                Container(
+                  height: 58,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(color: AppColors.mangoLight, width: 1),
+                  ),
+                  child: const Center(
+                    child: CircularProgressIndicator(
+                      color: AppColors.mango,
+                      strokeWidth: 2,
                     ),
                   ),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: Text(
-                      '${value.text.length}/250',
-                      style: TextStyle(
-                        color: isDark
-                            ? AppColors.darkTextMuted
-                            : AppColors.textMuted,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 11,
+                ),
+              ],
+            ),
+          );
+        }
+
+        final quantity = movementState.quantity.toInt();
+        // Available stock only shown when location is selected
+        final available = movementState.selectedLocationId != null
+            ? (movementState.availableStock?.toInt() ?? 0)
+            : null;
+
+        // Red border only shows when:
+        // 1. Product and location are selected
+        // 2. Available stock is loaded
+        // 3. Quantity exceeds available stock (for stock-out)
+        final exceeds = movementState.quantityExceedsAvailable;
+        final hasError =
+            movementState.selectedItem != null &&
+            movementState.selectedLocationId != null &&
+            movementState.availableStock != null &&
+            exceeds;
+
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Label
+              const Text(
+                'Quantity',
+                style: TextStyle(
+                  color: AppColors.deepGreen,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 16,
+                ),
+              ),
+              const SizedBox(height: 6),
+              // Quantity input with +/- buttons
+              Row(
+                children: [
+                  // Minus button (circular, beige border)
+                  InkWell(
+                    onTap: () {
+                      final newQuantity = (quantity - 1).clamp(0, 9999);
+                      viewModel.setQuantity(newQuantity.toDouble());
+                    },
+                    borderRadius: BorderRadius.circular(999),
+                    child: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: AppColors.borderSoft, // Beige border
+                          width: 1,
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons.remove,
+                        color: AppColors.deepGreen,
+                        size: 20,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12), // Width/spacing
+                  // Quantity input field (rounded rectangular)
+                  Expanded(
+                    child: Container(
+                      height: 58,
+                      decoration: BoxDecoration(
+                        color: Colors.white, // White background
+                        borderRadius: BorderRadius.circular(
+                          23,
+                        ), // Rounded corners
+                        border: Border.all(
+                          color: hasError
+                              ? AppColors
+                                    .error // Red border when error
+                              : AppColors.mangoLight, // Light orange border
+                          width: hasError ? 1.2 : 1,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          // Quantity number
+                          Text(
+                            quantity.toString(),
+                            style: const TextStyle(
+                              color: AppColors.deepGreen,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 20,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          // "Units" label
+                          Text(
+                            'Units',
+                            style: TextStyle(
+                              color: AppColors.textMuted,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12), // Width/spacing
+                  // Plus button (circular, orange filled)
+                  InkWell(
+                    onTap: () {
+                      final newQuantity = (quantity + 1).clamp(0, 9999);
+                      viewModel.setQuantity(newQuantity.toDouble());
+                    },
+                    borderRadius: BorderRadius.circular(999),
+                    child: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: const BoxDecoration(
+                        color: AppColors.mango, // Orange filled
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.add,
+                        color: Colors.white,
+                        size: 20,
                       ),
                     ),
                   ),
                 ],
-              );
-            },
+              ),
+              // Error message and available stock
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  // Error message
+                  if (exceeds)
+                    const Expanded(
+                      child: Text(
+                        'Exceeds available stock',
+                        style: TextStyle(
+                          color: AppColors.error,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  const Spacer(),
+                  // Available stock (only show when location is selected)
+                  if (available != null)
+                    Text(
+                      'Available: $available',
+                      style: const TextStyle(
+                        color: AppColors.textMuted,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12,
+                      ),
+                    ),
+                ],
+              ),
+            ],
           ),
-        ),
-      ],
+        );
+      },
+      loading: () => const SizedBox(height: 80),
+      error: (_, __) => const SizedBox(height: 80),
     );
   }
 }
 
-class _RecentMovements extends StatelessWidget {
-  final VoidCallback onTap;
-  const _RecentMovements({required this.onTap});
+class _UnitCostLocationRow extends ConsumerWidget {
+  const _UnitCostLocationRow();
+
+  Future<void> _showLocationPicker(
+    BuildContext context,
+    StockMovementState state,
+    StockMovementViewModel viewModel,
+  ) async {
+    if (state.isLoadingLocations) return;
+
+    // Load locations if not already loaded
+    if (state.availableLocations.isEmpty && !state.isLoadingLocations) {
+      // Locations should be loaded when ViewModel initializes
+    }
+
+    final selected = await showModalBottomSheet<Location?>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.7,
+        ),
+        decoration: const BoxDecoration(
+          color: Color(0xFFFFF9F0), // Light cream background
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle bar
+            Container(
+              margin: const EdgeInsets.only(top: 12, bottom: 8),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.borderSoft,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            // Header
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Select Location',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.deepGreen,
+                        fontSize: 20,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: AppColors.deepGreen),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+            ),
+            // Content
+            if (state.isLoadingLocations)
+              const Padding(
+                padding: EdgeInsets.all(32.0),
+                child: CircularProgressIndicator(color: AppColors.mango),
+              )
+            else if (state.availableLocations.isEmpty)
+              Padding(
+                padding: const EdgeInsets.all(32.0),
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.location_on_outlined,
+                      size: 48,
+                      color: AppColors.textMuted,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'No locations available',
+                      style: TextStyle(
+                        color: AppColors.textMuted,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else
+              Flexible(
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  itemCount: state.availableLocations.length,
+                  separatorBuilder: (context, index) => const Divider(
+                    height: 1,
+                    thickness: 1,
+                    color: AppColors.borderSoft,
+                  ),
+                  itemBuilder: (context, index) {
+                    final location = state.availableLocations[index];
+                    return InkWell(
+                      onTap: () => Navigator.of(context).pop(location),
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 16,
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 48,
+                              height: 48,
+                              decoration: BoxDecoration(
+                                color: AppColors.mangoLight.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Icon(
+                                Icons.location_on_rounded,
+                                color: AppColors.mango,
+                                size: 24,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    location.name,
+                                    style: const TextStyle(
+                                      color: AppColors.deepGreen,
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                  if (location.description != null) ...[
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      location.description!,
+                                      style: const TextStyle(
+                                        color: AppColors.textMuted,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                            const Icon(
+                              Icons.chevron_right,
+                              color: AppColors.textMuted,
+                              size: 20,
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+
+    if (selected != null) {
+      viewModel.selectLocation(selected.id);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(stockMovementProvider);
+    final viewModel = ref.read(stockMovementProvider.notifier);
+
+    return state.when(
+      data: (movementState) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Unit Cost (left) - smaller width
+              Expanded(
+                flex: 2,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Label
+                    const Text(
+                      'Unit Cost',
+                      style: TextStyle(
+                        color: AppColors.deepGreen,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 16,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    // Input field (locked)
+                    Container(
+                      height: 54,
+                      decoration: BoxDecoration(
+                        color: const Color(
+                          0xFFE9DDCC,
+                        ), // Light beige background
+                        borderRadius: BorderRadius.circular(
+                          23,
+                        ), // Rounded corners
+                        border: Border.all(
+                          color: AppColors.borderSoft,
+                          width: 1,
+                        ),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      child: Row(
+                        children: [
+                          // Unit cost text
+                          Expanded(
+                            child: Text(
+                              '\$ 4.50', // TODO: Get from API or product
+                              style: TextStyle(
+                                color: AppColors.textMuted,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 15,
+                              ),
+                            ),
+                          ),
+                          // Lock icon
+                          const Icon(
+                            Icons.lock_outline,
+                            color: AppColors.textMuted,
+                            size: 18,
+                          ),
+                        ],
+                      ),
+                    ),
+                    // Permission text
+                    const SizedBox(height: 6),
+                    const Text(
+                      'MANAGER/ADMIN ONLY',
+                      style: TextStyle(
+                        color: AppColors.deepGreen,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12), // Spacing between fields
+              // Location (right) - larger width
+              Expanded(
+                flex: 3,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Label - aligned with Unit Cost label
+                    const Text(
+                      'Location',
+                      style: TextStyle(
+                        color: AppColors.deepGreen,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 16,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    // Selection field - aligned with Unit Cost field
+                    InkWell(
+                      onTap: movementState.isLoadingLocations
+                          ? null
+                          : () => _showLocationPicker(
+                              context,
+                              movementState,
+                              viewModel,
+                            ),
+                      borderRadius: BorderRadius.circular(16),
+                      child: Container(
+                        height: 54, // Same height as Unit Cost field
+                        decoration: BoxDecoration(
+                          color: Colors.white, // White background
+                          borderRadius: BorderRadius.circular(
+                            23,
+                          ), // Rounded corners
+                          border: Border.all(
+                            color: AppColors.mangoLight, // Light orange border
+                            width: 1,
+                          ),
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 14),
+                        child: Row(
+                          children: [
+                            // Location text
+                            Expanded(
+                              child: Text(
+                                movementState.selectedLocation?.name ??
+                                    'Select location',
+                                style: TextStyle(
+                                  color: movementState.selectedLocation != null
+                                      ? AppColors.deepGreen
+                                      : AppColors.textMuted,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 15,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            // Dropdown icon (orange chevrons)
+                            if (movementState.isLoadingLocations)
+                              const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: AppColors.mango,
+                                ),
+                              )
+                            else
+                              const Icon(
+                                Icons.expand_more_rounded,
+                                color: AppColors.mango,
+                                size: 24,
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    // Empty space to match Unit Cost's "MANAGER/ADMIN ONLY" text height
+                    const SizedBox(
+                      height: 29,
+                    ), // 6 (spacing) + 11 (text) + 12 (extra)
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+      loading: () => const SizedBox(height: 80),
+      error: (_, __) => const SizedBox(height: 80),
+    );
+  }
+}
+
+class _NotesReasonField extends ConsumerStatefulWidget {
+  const _NotesReasonField();
+
+  @override
+  ConsumerState<_NotesReasonField> createState() => _NotesReasonFieldState();
+}
+
+class _NotesReasonFieldState extends ConsumerState<_NotesReasonField> {
+  late TextEditingController _controller;
+  static const int _maxLength = 250;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _updateControllerIfChanged(String newValue) {
+    if (_controller.text != newValue) {
+      _controller.value = TextEditingValue(
+        text: newValue,
+        selection: TextSelection.collapsed(offset: newValue.length),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
+    final state = ref.watch(stockMovementProvider);
+    final viewModel = ref.read(stockMovementProvider.notifier);
+
+    return state.when(
+      data: (movementState) {
+        // Update controller if state changed externally
+        _updateControllerIfChanged(movementState.note ?? '');
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(
-              Icons.history,
-              size: 18,
-              color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+            // Label
+            const Text(
+              'Notes / Reason',
+              style: TextStyle(
+                color: AppColors.deepGreen,
+                fontWeight: FontWeight.w700,
+                fontSize: 16,
+              ),
+            ),
+            const SizedBox(height: 6),
+            // Text input field
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white, // White background
+                borderRadius: BorderRadius.circular(16), // Rounded corners
+                border: Border.all(
+                  color: AppColors.borderSoft, // Light beige border
+                  width: 1,
+                ),
+              ),
+              child: TextField(
+                controller: _controller,
+                maxLength: _maxLength,
+                maxLines: 5,
+                minLines: 5,
+                style: const TextStyle(
+                  color: AppColors.deepGreen,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
+                decoration: InputDecoration(
+                  hintText: 'Describe the reason for stock adjustment...',
+                  hintStyle: TextStyle(
+                    color: AppColors.textMuted,
+                    fontSize: 15,
+                  ),
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.all(16),
+                  counterText: '', // Hide default counter
+                ),
+                onChanged: (value) {
+                  // Set both reason and note from the Notes/Reason field
+                  // Reason is required by API, note is optional
+                  if (value.isEmpty) {
+                    viewModel.setReason('');
+                    viewModel.setNote(null);
+                  } else {
+                    // Use the input as reason (required field)
+                    // Also set it as note for additional context
+                    viewModel.setReason(value);
+                    viewModel.setNote(value);
+                  }
+                },
+                buildCounter:
+                    (
+                      BuildContext context, {
+                      required int currentLength,
+                      required int? maxLength,
+                      required bool isFocused,
+                    }) {
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 16, bottom: 12),
+                        child: Align(
+                          alignment: Alignment.bottomRight,
+                          child: Text(
+                            '$currentLength/$maxLength',
+                            style: TextStyle(
+                              color: AppColors.textMuted,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+              ),
+            ),
+          ],
+        );
+      },
+      loading: () => const SizedBox(height: 120),
+      error: (_, __) => const SizedBox(height: 120),
+    );
+  }
+}
+
+class _ViewRecentMovementsLink extends StatelessWidget {
+  const _ViewRecentMovementsLink();
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: () {
+        // TODO: Navigate to recent movements screen
+        // Navigator.push(
+        //   context,
+        //   MaterialPageRoute(
+        //     builder: (context) => const RecentMovementsScreen(),
+        //   ),
+        // );
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // History icon
+            const Icon(
+              Icons.history_rounded,
+              color: AppColors.deepGreen,
+              size: 20,
             ),
             const SizedBox(width: 8),
-            Text(
+            // Text
+            const Text(
               'View Recent Movements',
               style: TextStyle(
-                color: isDark ? AppColors.darkTextMuted : AppColors.deepGreen,
+                color: AppColors.deepGreen,
                 fontWeight: FontWeight.w700,
+                fontSize: 15,
               ),
+            ),
+            const SizedBox(width: 8),
+            // Filter icon
+            const Icon(
+              Icons.filter_list_rounded,
+              color: AppColors.deepGreen,
+              size: 20,
             ),
           ],
         ),
@@ -1064,153 +1726,180 @@ class _RecentMovements extends StatelessWidget {
   }
 }
 
-class _Footer extends StatelessWidget {
-  final bool enabled;
-  final bool isLoading;
-  final VoidCallback onCancel;
-  final VoidCallback onSave;
-  const _Footer({
-    required this.enabled,
-    required this.onCancel,
-    required this.onSave,
-    this.isLoading = false,
-  });
+class _ReferenceField extends StatelessWidget {
+  const _ReferenceField();
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: OutlinedButton(
-            onPressed: onCancel,
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              side: const BorderSide(color: Color(0xFFDDDBD7)),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(18),
-              ),
-            ),
-            child: const Text(
-              'Cancel',
-              style: TextStyle(
-                color: AppColors.textMuted,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: ElevatedButton(
-            onPressed: (enabled && !isLoading) ? onSave : null,
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(18),
-              ),
-              backgroundColor: enabled
-                  ? AppColors.mango
-                  : const Color(0xFFC7C6C5),
-              foregroundColor: Colors.white,
-              elevation: enabled ? 3 : 0,
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: const [
-                Text(
-                  'Save Movement',
-                  style: TextStyle(fontWeight: FontWeight.w800),
-                ),
-                SizedBox(width: 8),
-                Icon(Icons.check_rounded, size: 18),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _InfoPill extends StatelessWidget {
-  final IconData icon;
-  final String text;
-  final Color background;
-  final Color? iconColor;
-  const _InfoPill({
-    required this.icon,
-    required this.text,
-    required this.background,
-    this.iconColor,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 14,
-            backgroundColor: isDark
-                ? AppColors.darkSurface
-                : Colors.white.withOpacity(0.85),
-            child: Icon(
-              icon,
-              size: 16,
-              color: iconColor ?? AppColors.deepGreen,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              text,
-              style: TextStyle(
-                color: isDark ? AppColors.darkTextPrimary : AppColors.deepGreen,
-                fontWeight: FontWeight.w700,
-                fontSize: 13,
-              ),
-            ),
-          ),
-        ],
+      height: 80,
+      color: Colors.transparent,
+      child: const Center(
+        child: Text(
+          'TODO: Reference Field',
+          style: TextStyle(color: Colors.grey),
+        ),
       ),
     );
   }
 }
 
-class _CircleButton extends StatelessWidget {
-  final IconData icon;
-  final VoidCallback onTap;
-  final bool fill;
-  const _CircleButton({
-    required this.icon,
-    required this.onTap,
-    this.fill = false,
-  });
+class _FooterButtons extends ConsumerWidget {
+  const _FooterButtons();
 
   @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(999),
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: fill ? AppColors.mango : Colors.transparent,
-          border: fill ? null : Border.all(color: AppColors.borderSoft),
-        ),
-        child: Icon(
-          icon,
-          color: fill ? Colors.white : AppColors.deepGreen,
-          size: 18,
-        ),
-      ),
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(stockMovementProvider);
+    final viewModel = ref.read(stockMovementProvider.notifier);
+
+    return state.when(
+      data: (movementState) {
+        final isValid = movementState.isValid;
+        final isSubmitting = movementState.isSubmitting;
+
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 4),
+          child: Row(
+            children: [
+              // Cancel button (left)
+              Expanded(
+                child: InkWell(
+                  onTap: isSubmitting
+                      ? null
+                      : () {
+                          Navigator.of(context).pop();
+                        },
+                  borderRadius: BorderRadius.circular(999), // Fully rounded
+                  child: Container(
+                    height: 56,
+                    decoration: BoxDecoration(
+                      color: Colors.white, // White background
+                      borderRadius: BorderRadius.circular(999), // Fully rounded
+                      border: Border.all(
+                        color: AppColors.borderSoft, // Light border
+                        width: 1,
+                      ),
+                    ),
+                    child: const Center(
+                      child: Text(
+                        'Cancel',
+                        style: TextStyle(
+                          color: AppColors.deepGreen,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12), // Spacing between buttons
+              // Save Movement button (right)
+              Expanded(
+                flex: 2, // Wider than Cancel button
+                child: InkWell(
+                  onTap: (isValid && !isSubmitting)
+                      ? () async {
+                          final success = await viewModel.createStockMovement();
+                          if (!context.mounted) return;
+
+                          if (success) {
+                            // Show success message
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Stock movement saved successfully',
+                                ),
+                                backgroundColor: AppColors.success,
+                                duration: Duration(seconds: 2),
+                              ),
+                            );
+                            // Navigate back on success
+                            Navigator.of(context).maybePop();
+                          } else {
+                            // Show error message (read fresh state for error)
+                            final currentState = ref.read(
+                              stockMovementProvider,
+                            );
+                            currentState.whenData((state) {
+                              if (state.error != null) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(state.error!),
+                                    backgroundColor: AppColors.error,
+                                    duration: const Duration(seconds: 3),
+                                  ),
+                                );
+                              }
+                            });
+                          }
+                        }
+                      : null,
+                  borderRadius: BorderRadius.circular(999), // Fully rounded
+                  child: Container(
+                    height: 56,
+                    decoration: BoxDecoration(
+                      color: (isValid && !isSubmitting)
+                          ? AppColors
+                                .mango // Orange when enabled
+                          : const Color(0xFFE0E0E0), // Light gray when disabled
+                      borderRadius: BorderRadius.circular(999), // Fully rounded
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        // Button text
+                        Text(
+                          'Save Movement',
+                          style: TextStyle(
+                            color: (isValid && !isSubmitting)
+                                ? Colors
+                                      .white // White text when enabled
+                                : const Color(
+                                    0xFF9E9E9E,
+                                  ), // Dark gray when disabled
+                            fontWeight: FontWeight.w800,
+                            fontSize: 16,
+                          ),
+                        ),
+                        // Disabled icon or loading indicator
+                        if (!isValid || isSubmitting) ...[
+                          const SizedBox(width: 8),
+                          if (isSubmitting)
+                            const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Color(0xFF9E9E9E),
+                              ),
+                            )
+                          else
+                            Container(
+                              width: 18,
+                              height: 18,
+                              decoration: const BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Color(0xFF9E9E9E),
+                              ),
+                              child: const Icon(
+                                Icons.close,
+                                size: 12,
+                                color: Colors.white,
+                              ),
+                            ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+      loading: () => const SizedBox(height: 56),
+      error: (_, __) => const SizedBox(height: 56),
     );
   }
 }

@@ -381,6 +381,12 @@ class StockTransferViewModel extends AsyncNotifier<StockTransferState> {
       ),
     );
   }
+
+  /// Refresh data (reload locations).
+  /// Can be extended to reload products if needed.
+  Future<void> refresh() async {
+    await _loadInitialData();
+  }
 }
 
 /// Riverpod provider for StockTransferViewModel.

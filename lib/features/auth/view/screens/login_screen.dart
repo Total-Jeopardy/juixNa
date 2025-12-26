@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:juix_na/app/app_colors.dart';
 import 'package:juix_na/core/config/app_config.dart';
 import 'package:juix_na/features/auth/viewmodel/auth_state.dart';
 import 'package:juix_na/features/auth/viewmodel/auth_vm.dart';
-import 'package:juix_na/features/inventory/view/screens/inventory_overview_screen.dart';
 
 /// Login screen for user authentication.
 /// Uses AuthViewModel for login logic and state management.
@@ -62,9 +62,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     ref.listen<AsyncValue<AuthState>>(authViewModelProvider, (previous, next) {
       if (!_hasNavigated && next.value?.isAuthenticated == true && mounted) {
         _hasNavigated = true;
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const InventoryOverviewScreen()),
-        );
+        // Navigate to inventory overview using go_router
+        context.go('/inventory');
       }
     });
 

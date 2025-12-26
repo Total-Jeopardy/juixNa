@@ -17,7 +17,6 @@ class AuthViewModel extends AsyncNotifier<AuthState> {
     return _repository!;
   }
 
-
   @override
   Future<AuthState> build() async {
     // On app start, check if user is already authenticated
@@ -25,7 +24,7 @@ class AuthViewModel extends AsyncNotifier<AuthState> {
   }
 
   /// Check authentication status by verifying if token exists.
-  /// 
+  ///
   /// For v1, we assume token is valid if it exists.
   /// In future, we could validate token with backend.
   Future<AuthState> checkAuthStatus() async {
@@ -51,12 +50,9 @@ class AuthViewModel extends AsyncNotifier<AuthState> {
   }
 
   /// Login with email and password.
-  /// 
+  ///
   /// Updates state to loading, then authenticated or error.
-  Future<void> login({
-    required String email,
-    required String password,
-  }) async {
+  Future<void> login({required String email, required String password}) async {
     state = const AsyncValue.loading();
 
     final result = await _authRepository.login(
@@ -72,16 +68,13 @@ class AuthViewModel extends AsyncNotifier<AuthState> {
       final failure = result as ApiFailure<User>;
       final error = failure.error;
       state = AsyncValue.data(
-        AuthStateError(
-          error.message,
-          details: error.details?.toString(),
-        ),
+        AuthStateError(error.message, details: error.details?.toString()),
       );
     }
   }
 
   /// Logout current user.
-  /// 
+  ///
   /// Clears token and sets state to unauthenticated.
   Future<void> logout() async {
     state = const AsyncValue.loading();
@@ -91,10 +84,7 @@ class AuthViewModel extends AsyncNotifier<AuthState> {
       state = const AsyncValue.data(AuthStateUnauthenticated());
     } catch (e) {
       state = AsyncValue.data(
-        AuthStateError(
-          'Failed to logout',
-          details: e.toString(),
-        ),
+        AuthStateError('Failed to logout', details: e.toString()),
       );
     }
   }
@@ -120,10 +110,11 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) {
 });
 
 /// Riverpod provider for AuthViewModel.
-final authViewModelProvider =
-    AsyncNotifierProvider<AuthViewModel, AuthState>(() {
-  return AuthViewModel();
-});
+final authViewModelProvider = AsyncNotifierProvider<AuthViewModel, AuthState>(
+  () {
+    return AuthViewModel();
+  },
+);
 
 /// Derived provider for current user (null if not authenticated).
 final currentUserProvider = Provider<User?>((ref) {
@@ -148,4 +139,3 @@ final userPermissionsProvider = Provider<List<String>>((ref) {
   final user = ref.watch(currentUserProvider);
   return user?.permissions ?? [];
 });
-

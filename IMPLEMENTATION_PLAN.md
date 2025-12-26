@@ -233,124 +233,190 @@ This plan outlines the implementation of all missing pieces to align the Flutter
 
 ## Phase 5: Inventory Module - UI Integration 🎨
 
-### 5.1 Inventory Overview Screen
-- [ ] Replace `StatefulWidget` with `ConsumerWidget`
-- [ ] Connect to `inventoryOverviewProvider`
-- [ ] Replace dummy data with ViewModel data
-- [ ] Add loading state UI
-- [ ] Add error state UI
-- [ ] Add empty state UI
-- [ ] Implement pull-to-refresh
-- [ ] Wire up filter chips to ViewModel
-- [ ] Wire up location selector to ViewModel
-- [ ] Wire up search field to ViewModel
-- [ ] Wire up FAB to navigate to Stock Movement
+**Progress:** 100% (All 6 screens complete and error-free)
+
+### 5.1 Inventory Overview Screen ✅
+- [x] Replace `StatefulWidget` with `ConsumerWidget` (ConsumerStatefulWidget)
+- [x] Connect to `inventoryOverviewProvider`
+- [x] Replace dummy data with ViewModel data
+- [x] Add loading state UI
+- [x] Add error state UI
+- [x] Add empty state UI
+- [x] Implement pull-to-refresh
+- [x] Wire up filter chips to ViewModel (All Items clears filters, Category shows kind picker, Brand shows message)
+- [x] Wire up location selector to ViewModel
+- [x] Wire up search field to ViewModel
+- [x] Wire up FAB to navigate to Stock Movement
 - [ ] Wire up stock card tap to show details (future)
-- [ ] Test all interactions
+- [ ] Test all interactions (manual testing pending)
 
-### 5.2 Stock Movement Screen
-- [ ] Replace `StatefulWidget` with `ConsumerWidget`
-- [ ] Connect to `stockMovementProvider`
-- [ ] Replace dummy data with ViewModel data
-- [ ] Implement product picker (load from API)
-- [ ] Implement batch picker (load from API, conditional)
-- [ ] Implement location picker (load from API)
-- [ ] Implement available stock validation (from API)
-- [ ] Wire up form submission to ViewModel
-- [ ] Add loading states during submission
-- [ ] Add success/error feedback
-- [ ] Navigate back on success
-- [ ] Test full flow
+### 5.2 Stock Movement Screen ✅
+- [x] Replace `StatefulWidget` with `ConsumerWidget` (ConsumerStatefulWidget)
+- [x] Connect to `stockMovementProvider`
+- [x] Replace dummy data with ViewModel data
+- [x] Implement product picker (load from API)
+- [x] Implement batch picker (not required for v1 per API spec - batches deferred)
+- [x] Implement location picker (load from API)
+- [x] Implement available stock validation (from API)
+- [x] Wire up form submission to ViewModel
+- [x] Add loading states during submission
+- [x] Add success/error feedback
+- [x] Navigate back on success
+- [x] Fixed text controller cursor jumping issue (only update when value changes)
+- [x] Complete UI rebuild with all components:
+  - [x] AppBar (back button, title, refresh button)
+  - [x] Online Status Indicator (Wi-Fi icon, "ONLINE", last refreshed time)
+  - [x] Movement Toggle (Stock-In / Stock-Out segmented control)
+  - [x] Date field with date picker
+  - [x] Product field with product picker
+  - [x] Batch # field with validation and error states
+  - [x] Quantity field with +/- buttons and validation
+  - [x] Unit Cost + Location inline row
+  - [x] Notes / Reason text area with character counter
+  - [x] View Recent Movements link
+  - [x] Footer buttons (Cancel, Save Movement) with proper states
+- [x] Fixed navigation on success (use boolean return value instead of state check)
+- [ ] Test full flow (manual testing pending)
 
-### 5.3 Cycle Counts Screen
-- [ ] Implement full UI (currently empty file)
-- [ ] Connect to `cycleCountProvider`
-- [ ] Implement product picker
-- [ ] Implement batch picker (conditional)
-- [ ] Implement location picker
-- [ ] Load system quantity from API
-- [ ] Implement count input
-- [ ] Calculate variance
-- [ ] Wire up "Adjust Stock" button
-- [ ] Wire up "Save Count" button
-- [ ] Add validation
-- [ ] Add loading/error states
-- [ ] Test full flow
+### 5.3 Cycle Counts Screen ✅
+- [x] Implement full UI (complete skeleton with all components)
+- [x] Connect to `cycleCountProvider`
+- [x] Implement product picker (with product card display showing image placeholder, name, SKU, unit)
+- [x] Implement batch picker (hidden for v1 per API spec - returns SizedBox.shrink())
+- [x] Implement location picker
+- [x] Load system quantity from API (auto-loads when product + location selected)
+- [x] Implement count input (with +/- buttons, displays counted quantity)
+- [x] Calculate variance (displayed in red warning box when variance exists)
+- [x] Wire up "Adjust Stock" button (creates pending approval for clerks, direct adjustment for managers/admins)
+- [x] Wire up "Save Count" button (saves count without adjustment when no variance)
+- [x] Add validation (form validation, quantity checks)
+- [x] Add loading/error states (granular loading flags, error preservation)
+- [x] Approval message overlay (conditional, shows when variance requires approval)
+- [x] Footer buttons (Cancel, Adjust Stock/Save Count with proper states)
+- [x] Refresh button wired (reloads system quantity or products)
+- [x] Date field documented (display-only, not sent to API in v1)
+- [x] Request token mechanism to prevent stale API responses (✅ implemented - prevents race conditions when item/location changes during in-flight requests)
+- [x] Role-based approval logic (clerk/staff vs manager/admin)
+- [x] Form persistence behavior documented (form resets after successful adjustment, acceptable for v1)
+- [ ] Test full flow (manual testing pending)
 
-### 5.4 Reorder Alerts Screen
-- [ ] Create new screen file
-- [ ] Design UI (list of alerts with badges)
-- [ ] Connect to `reorderAlertsProvider`
-- [ ] Display alerts with severity badges (CRITICAL/LOW)
-- [ ] Show current stock, reorder target, suggested amount
-- [ ] Implement "Create Request" action
-- [ ] Implement "View Product" action
-- [ ] Implement "Dismiss" action
-- [ ] Add loading/error/empty states
-- [ ] Test all interactions
+### 5.4 Reorder Alerts Screen ✅
+- [x] Create new screen file (`reorder_alerts_screen.dart`)
+- [x] Build AppBar (back button, "Reorder Alerts" title, "Sync" button)
+- [x] Implement Location Selector + Online Status Chip row
+- [x] Implement Filter Buttons row ("All", "Low Stock", "Out of Stock" with badges)
+- [x] Implement "Mark All As Read" link
+- [x] Address overflow issues in header section using `MediaQuery`
+- [x] Create reusable `ReorderAlertCard` widget (`reorder_alert_card.dart`)
+  - [x] Product image placeholder
+  - [x] Product name
+  - [x] Product type tag (e.g., "SMOOTHIE", "FINISHED PRODUCT")
+  - [x] Severity badge (CRITICAL, LOW STOCK, OUT OF STOCK)
+  - [x] Stock details (STOCK, REORDER @, SUGGEST) with dividers and white background
+  - [x] Action buttons ("Create Request", "View Product", "Dismiss")
+  - [x] Reorder product header elements (type tag first, then name, then critical indicator)
+  - [x] Center-align values in stock details section
+  - [x] Adjust styling for "OUT OF STOCK" alerts (dark gray badge, "0" stock value)
+- [x] Connect to `reorderAlertsProvider` (fully wired with real data)
+- [x] Implement location filter functionality (dropdown/picker with "All locations", wired to `filterByLocation`/`clearLocationFilter`)
+- [x] Implement pull-to-refresh (via `RefreshIndicator`)
+- [x] Implement dismiss alert functionality (local dismiss via `dismissAlert`)
+- [x] Implement "Mark All As Read" functionality (local dismiss all via `dismissAlerts`)
+- [x] Wire up "Create Request" action (shows snackbar, ready for navigation)
+- [x] Wire up "View Product" action (shows snackbar, ready for navigation)
+- [x] Implement Empty/Error/Loading states for the list (empty state, error state with retry, loading spinner)
+- [x] Fix Online chip text encoding artifact (using Unicode bullet `\u2022`)
+- [ ] Test full UI and interactions (manual testing pending)
 
-### 5.5 Stock Transfer Screen
-- [ ] Create new screen file
-- [ ] Design UI (from/to location, product, batch, quantity)
-- [ ] Connect to `stockTransferProvider`
-- [ ] Implement product picker
-- [ ] Implement batch picker (conditional)
-- [ ] Implement from-location picker
-- [ ] Implement to-location picker
-- [ ] Validate from != to
-- [ ] Load available stock from source location
-- [ ] Validate quantity doesn't exceed available
-- [ ] Wire up form submission
-- [ ] Add loading/error/success states
-- [ ] Navigate back on success
-- [ ] Test full flow
+### 5.5 Stock Transfer Screen ✅
+- [x] Create new screen file (`stock_transfer_screen.dart`)
+- [x] Design UI (from/to location, product, batch, quantity)
+  - [x] AppBar (back button, "Transfers" title, Sync button)
+  - [x] Online Status Indicator (Wi-Fi icon, "ONLINE", last sync time)
+  - [x] Form Card with "Transfer Setup" section
+  - [x] Date field with date picker
+  - [x] Product field with product picker (shows product card when selected)
+  - [x] Batch field (hidden for v1 - batches not required per API spec, similar to Cycle Counts Screen)
+  - [x] From (Source) location picker with warehouse icon
+  - [x] Swap locations button (circular button between from/to)
+  - [x] To (Destination) location picker with validation (red border + error when same as source)
+  - [x] Availability info bar (green bar showing available stock in source)
+  - [x] Quantity field with +/- buttons and validation
+  - [x] Notes field (multi-line text input)
+  - [x] Footer buttons (Cancel, Transfer Stock with proper states)
+- [x] Connect to `stockTransferProvider` (fully wired with real data)
+- [x] Implement product picker (loads products, shows loading/empty states, calls selectItem)
+- [x] Implement batch picker (hidden for v1 - batches not required per API spec, removed from UI)
+- [x] Implement from-location picker (wired to setFromLocation, auto-loads available stock when product selected)
+- [x] Implement to-location picker (wired to setToLocation, shows validation error)
+- [x] Validate from != to (shows red border and error message "Destination cannot be the same as Source")
+- [x] Load available stock from source location (auto-loads when product + from location selected, uses request token to prevent stale responses)
+- [x] Validate quantity doesn't exceed available (shows error message, red border, disabled submit button)
+- [x] Wire up form submission (calls createStockTransfer, shows loading spinner, success/error snackbars)
+- [x] Add loading/error/success states (loading spinners, error messages, success feedback)
+- [x] Navigate back on success (pops screen after successful transfer)
+- [x] Sync button wired (calls refresh() to reload locations)
+- [x] Swap locations functionality (exchanges from/to locations)
+- [ ] Test full flow (manual testing pending)
 
-### 5.6 Transfer History Screen
-- [ ] Create new screen file
-- [ ] Design UI (list of transfers with status badges)
-- [ ] Connect to `stockTransferProvider`
-- [ ] Display transfers with:
-  - [ ] Status (SYNCED/PENDING/FAILED)
-  - [ ] Product, batch, quantity
-  - [ ] From/to locations
-  - [ ] Date/time
-- [ ] Add filters (date range, status, location)
-- [ ] Add loading/error/empty states
-- [ ] Implement retry for failed transfers (if needed)
-- [ ] Test all interactions
+### 5.6 Transfer History Screen ✅
+- [x] Create new screen file (`transfer_history_screen.dart`)
+- [x] Design UI (list of transfers with status badges)
+- [x] Connect to `transferHistoryProvider` (created ViewModel)
+- [x] Display transfers with:
+  - [x] Status (SYNCED - all transfers are synced in v1, status badge logic implemented)
+  - [x] Product, quantity (with direction: OUT/IN)
+  - [x] Location (simplified for v1 - shows single location per movement)
+  - [x] Date/time
+- [x] Add filters:
+  - [x] Date range ("This Week" default, wired to ViewModel)
+  - [x] Product filter (picker implemented, wired to ViewModel) ✅ (Fixed: Implemented _showProductPicker method with repository integration)
+  - [x] Source/Location filter (location selector implemented, wired to ViewModel) ✅ (Fixed: Resolved _showLocationPicker conflict, fixed method signatures)
+- [x] Add location selector (similar to Reorder Alerts screen)
+- [x] Add loading/error/empty states
+- [x] Implement refresh functionality (Sync button)
+- [x] Filter buttons show selected values and remove chevron when inactive
+- [x] Fixed navigation methods (replaced context.maybePop with context.pop/Navigator.pop)
+- [x] Fixed all linter errors (undefined references, unused imports, method conflicts)
+- [ ] Implement retry for failed transfers (not applicable for v1 - all transfers are synced)
+- [ ] Test all interactions (manual testing pending)
 
 ---
 
 ## Phase 6: Navigation & Routing 🧭
 
-### 6.1 Add Routing Package
-- [ ] Add `go_router` package to `pubspec.yaml`
-- [ ] Run `flutter pub get`
-- [ ] Create `app/router.dart` with route definitions:
-  - [ ] `/login` → LoginScreen
-  - [ ] `/dashboard` → DashboardScreen (future)
-  - [ ] `/inventory` → InventoryOverviewScreen
-  - [ ] `/inventory/movement` → StockMovementScreen
-  - [ ] `/inventory/cycle-count` → CycleCountsScreen
-  - [ ] `/inventory/reorder-alerts` → ReorderAlertsScreen
-  - [ ] `/inventory/transfer` → StockTransferScreen
-  - [ ] `/inventory/transfer/history` → TransferHistoryScreen
-- [ ] Add route guards (auth required)
-- [ ] Add route parameters (e.g., productId, locationId)
+### 6.1 Add Routing Package ✅
+- [x] Add `go_router` package to `pubspec.yaml`
+- [x] Run `flutter pub get`
+- [x] Create `app/router.dart` with route definitions:
+  - [x] `/login` → LoginScreen
+  - [x] `/dashboard` → DashboardScreen (future - commented out)
+  - [x] `/inventory` → InventoryOverviewScreen
+  - [x] `/inventory/movement` → StockMovementScreen
+  - [x] `/inventory/cycle-count` → CycleCountsScreen
+  - [x] `/inventory/reorder-alerts` → ReorderAlertsScreen
+  - [x] `/inventory/transfer` → StockTransferScreen
+  - [x] `/inventory/transfer/history` → TransferHistoryScreen
+- [x] Add route guards (auth required - redirect logic in router)
+  - [x] Gate redirects during loading/error states to prevent flicker
+  - [x] Proper listener disposal in _AuthStateNotifier
+- [x] Add route parameters support (commented in route builder, can extract from queryParameters)
 
-### 6.2 Update Main App
-- [ ] Replace `MaterialApp` with `MaterialApp.router`
-- [ ] Connect to router configuration
-- [ ] Update all `Navigator.push` to use `context.go` or `context.push`
-- [ ] Test all navigation flows
+### 6.2 Update Main App ✅
+- [x] Replace `MaterialApp` with `MaterialApp.router` ✅ (Done in main.dart)
+- [x] Connect to router configuration ✅ (Done - routerConfig: router)
+- [x] Update all `Navigator.push` to use `context.go` or `context.push` ✅ (Main navigation uses context.push/go; Navigator.pop still used for dialogs/bottom sheets - acceptable)
+- [ ] Test all navigation flows (manual testing pending)
 
 ### 6.3 Navigation Integration
-- [ ] Wire up FAB in Inventory Overview → Stock Movement
-- [ ] Wire up "View Recent Movements" → Transfer History
-- [ ] Wire up filter actions → appropriate screens
-- [ ] Wire up reorder alert actions → appropriate screens
-- [ ] Add back navigation handling
-- [ ] Test all navigation paths
+- [x] Fix navigation method issues ✅ (Fixed context.maybePop errors - replaced with context.pop/Navigator.pop as appropriate)
+- [x] Wire up FAB in Inventory Overview → Stock Movement ✅ (Uses context.push('/inventory/movement') - fully implemented)
+- [x] Wire up FAB menu actions ✅ (All FAB menu items use context.push: Cycle Count, Reorder Alerts, Stock Transfer, Transfer History)
+- [ ] Wire up "View Recent Movements" → Transfer History (TODO: Currently commented out in stock_movement_screen.dart line 1686, needs context.push('/inventory/transfer/history'))
+- [ ] Wire up filter actions → appropriate screens (No filter actions navigate to screens currently - may not be needed)
+- [ ] Wire up reorder alert actions → appropriate screens (Currently shows snackbars only - "Create Request" and "View Product" need navigation)
+- [x] Add back navigation handling ✅ (Fixed back button navigation in all screens - uses context.pop or Navigator.pop as appropriate)
+- [ ] Test all navigation paths (manual testing pending)
 
 ---
 
@@ -429,12 +495,12 @@ This plan outlines the implementation of all missing pieces to align the Flutter
 - [ ] Add README for each feature module
 
 ### 9.2 Code Cleanup
-- [ ] Remove unused imports
+- [x] Remove unused imports ✅ (Removed unused go_router import from stock_movement_screen.dart)
 - [ ] Remove commented-out code
 - [ ] Remove dummy/hardcoded data
 - [ ] Ensure consistent code style
 - [ ] Run `dart format` on all files
-- [ ] Fix all linter warnings
+- [x] Fix all linter warnings ✅ (Fixed all linter errors: navigation methods, undefined references, method conflicts, unused variables)
 
 ### 9.3 Project Documentation
 - [ ] Update main README.md with:
@@ -471,11 +537,19 @@ This plan outlines the implementation of all missing pieces to align the Flutter
 
 ## Progress Tracking
 
-**Current Phase:** Phase 1 - Foundation & Core Infrastructure
+**Current Phase:** Phase 5 - Inventory Module UI Integration ✅ / Phase 9 - Code Cleanup (in progress)
 
-**Completed:** 0/150+ tasks
+**Completed:** 
+- ✅ Phase 1: Foundation & Core Infrastructure (100%)
+- ✅ Phase 2: Authentication Module (100%)
+- ✅ Phase 3: Inventory Module - Data Layer (100%)
+- ✅ Phase 4: Inventory Module - State Management (100%)
+- ✅ Phase 5: Inventory Module - UI Integration (100% - All 6 screens complete and error-free)
 
-**Next Milestone:** Complete Phase 1 & 2 (Auth Module)
+**In Progress:**
+- 🔄 Phase 9: Documentation & Cleanup (Code cleanup: 30% - linter errors fixed, unused imports removed)
+
+**Next Milestone:** Complete Phase 9.2 (Code Cleanup - format code, remove commented code), then Phase 6.3 (Navigation Integration)
 
 ---
 
@@ -504,4 +578,20 @@ Based on the plan, expected endpoints:
 - `GET /api/inventory/transfers`
 
 *Verify actual endpoints with backend team/API docs*
+
+---
+
+## Recent Updates / Changelog
+
+### 2024 - Code Cleanup & Bug Fixes
+- ✅ **Fixed all linter errors** across inventory screens:
+  - Fixed `context.maybePop()` errors - replaced with `context.pop()` (go_router) or `Navigator.of(context).pop()` (standard navigation)
+  - Removed unused `go_router` import from `stock_movement_screen.dart`
+  - Fixed `transfer_history_screen.dart` issues:
+    - Implemented missing `_showProductPicker()` method with repository integration
+    - Fixed `_showLocationPicker()` method conflicts (removed incorrect static method, fixed instance method signatures)
+    - Fixed undefined `ref` and `viewModel` references
+    - Removed unused variables
+- ✅ **Phase 5.6 (Transfer History Screen)**: Marked as complete - all functionality implemented and errors resolved
+- ✅ **Phase 9.2 (Code Cleanup)**: Progress made - linter errors fixed, unused imports removed
 
