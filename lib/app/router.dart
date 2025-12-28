@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:juix_na/features/auth/view/screens/login_screen.dart';
 import 'package:juix_na/features/auth/viewmodel/auth_state.dart';
 import 'package:juix_na/features/auth/viewmodel/auth_vm.dart';
+import 'package:juix_na/features/dashboard/view/screens/dashboard_screen.dart';
 import 'package:juix_na/features/inventory/view/screens/cycle_counts_screen.dart';
 import 'package:juix_na/features/inventory/view/screens/inventory_overview_screen.dart';
 import 'package:juix_na/features/inventory/view/screens/reorder_alerts_screen.dart';
@@ -14,16 +15,21 @@ import 'package:juix_na/features/inventory/view/screens/transfer_history_screen.
 /// Router configuration for the app using go_router.
 /// Handles authentication guards and route definitions.
 final routerProvider = Provider<GoRouter>((ref) {
+  // TODO: Re-enable auth state watching when authentication is re-enabled
   // Watch auth state to determine redirects
-  final authState = ref.watch(authViewModelProvider);
+  // final authState = ref.watch(authViewModelProvider);
 
   return GoRouter(
-    // Note: Using initialLocation forces fresh start on login screen.
-    // For deep links/last-route restore in future, consider removing this
-    // so go_router can honor incoming locations.
-    initialLocation: '/login',
+    // TODO: Re-enable authentication redirect logic when testing is complete
+    // For now, bypass authentication and go straight to dashboard
+    initialLocation: '/dashboard',
     debugLogDiagnostics: true,
     redirect: (context, state) {
+      // Temporarily disabled authentication checks for testing
+      // Always allow access to dashboard and other routes
+      return null;
+
+      /* Original auth redirect logic (disabled for testing):
       // Gate redirects during loading/error states to prevent flicker
       // Wait for definitive auth state before redirecting
       if (authState.isLoading) {
@@ -49,15 +55,17 @@ final routerProvider = Provider<GoRouter>((ref) {
         return '/login';
       }
 
-      // If authenticated and on login page, redirect to inventory overview
+      // If authenticated and on login page, redirect to dashboard
       if (isAuthenticated && isOnLoginPage) {
-        return '/inventory';
+        return '/dashboard';
       }
 
       // No redirect needed
       return null;
+      */
     },
-    refreshListenable: _AuthStateNotifier(ref),
+    // TODO: Re-enable auth state notifier when authentication is re-enabled
+    // refreshListenable: _AuthStateNotifier(ref),
     routes: [
       GoRoute(
         path: '/login',
@@ -102,12 +110,11 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
         ],
       ),
-      // Placeholder for future routes (dashboard, etc.)
-      // GoRoute(
-      //   path: '/dashboard',
-      //   name: 'dashboard',
-      //   builder: (context, state) => const DashboardScreen(),
-      // ),
+      GoRoute(
+        path: '/dashboard',
+        name: 'dashboard',
+        builder: (context, state) => const DashboardScreen(),
+      ),
     ],
     errorBuilder: (context, state) => Scaffold(
       body: Center(
@@ -122,8 +129,8 @@ final routerProvider = Provider<GoRouter>((ref) {
             ),
             const SizedBox(height: 16),
             ElevatedButton(
-              onPressed: () => context.go('/inventory'),
-              child: const Text('Go to Inventory'),
+              onPressed: () => context.go('/dashboard'),
+              child: const Text('Go to Dashboard'),
             ),
           ],
         ),

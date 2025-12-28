@@ -1,12 +1,10 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:juix_na/app/app_colors.dart';
-import 'package:juix_na/app/theme_controller.dart';
 import 'package:juix_na/core/utils/error_display.dart';
-import 'package:juix_na/features/auth/viewmodel/auth_vm.dart';
 import 'package:juix_na/features/inventory/model/inventory_models.dart';
 import 'package:juix_na/features/inventory/viewmodel/inventory_filters.dart';
 import 'package:juix_na/features/inventory/viewmodel/inventory_overview_state.dart';
@@ -56,7 +54,15 @@ class _InventoryOverviewScreenState
         leading: Padding(
           padding: const EdgeInsets.only(left: 16),
           child: InkWell(
-            onTap: () => context.pop(),
+            onTap: () {
+              // Use context.canPop() to check if we can go back
+              // If we can't pop, navigate to dashboard as fallback
+              if (context.canPop()) {
+                context.pop();
+              } else {
+                context.go('/dashboard');
+              }
+            },
             borderRadius: BorderRadius.circular(20),
             child: Container(
               height: 40,
@@ -71,7 +77,8 @@ class _InventoryOverviewScreenState
         ),
         titleSpacing: 0,
         title: Text(
-          'Inventory Overview',
+          'Inventory\nOverview',
+          textAlign: TextAlign.start,
           style: theme.textTheme.titleLarge?.copyWith(
             color: cs.onSurface,
             fontWeight: FontWeight.w800,
@@ -79,57 +86,6 @@ class _InventoryOverviewScreenState
           ),
         ),
         actions: [
-          // Logout button
-          Consumer(
-            builder: (context, ref, _) {
-              return IconButton(
-                tooltip: 'Logout',
-                icon: const Icon(Icons.logout_rounded),
-                color: isDark ? Colors.white : AppColors.deepGreen,
-                onPressed: () async {
-                  final confirmed = await showDialog<bool>(
-                    context: context,
-                    builder: (context) => AlertDialog(
-                      title: const Text('Logout'),
-                      content: const Text('Are you sure you want to logout?'),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.of(context).pop(false),
-                          child: const Text('Cancel'),
-                        ),
-                        TextButton(
-                          onPressed: () => Navigator.of(context).pop(true),
-                          child: const Text('Logout'),
-                        ),
-                      ],
-                    ),
-                  );
-
-                  if (confirmed == true && mounted) {
-                    await ref.read(authViewModelProvider.notifier).logout();
-                    // Navigation handled by AuthGuard
-                  }
-                },
-              );
-            },
-          ),
-          // Theme toggle
-          Consumer(
-            builder: (context, ref, _) {
-              final themeMode = ref.watch(themeControllerProvider);
-              final themeNotifier = ref.read(themeControllerProvider.notifier);
-              final isDarkMode = themeMode == ThemeMode.dark;
-
-              return IconButton(
-                tooltip: 'Toggle theme',
-                icon: Icon(
-                  isDarkMode ? Icons.wb_sunny_rounded : Icons.nightlight_round,
-                  color: isDarkMode ? Colors.white : AppColors.deepGreen,
-                ),
-                onPressed: themeNotifier.toggle,
-              );
-            },
-          ),
           // Refresh button (will reload data from API when implemented)
           Padding(
             padding: const EdgeInsets.only(right: 16),
@@ -598,21 +554,35 @@ class _StatusContent extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Get screen width to ensure proper sizing
+    final screenWidth = MediaQuery.of(context).size.width;
+    final horizontalPadding = 16.0 * 2; // Left + right padding from parent
+    final spacing = 12.0; // Gap between location and status
+    final availableWidth = screenWidth - horizontalPadding - spacing;
+
+    // Location takes ~48%, Status takes ~52% (location smaller, online bigger)
+    final locationWidth = availableWidth * 0.48;
+    final statusWidth = availableWidth * 0.52;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 12),
-        Wrap(
-          spacing: 20,
-          runSpacing: 15,
+        Row(
           children: [
-            _LocationChip(
-              locations: state.locations,
-              selectedLocationId: state.selectedLocationId,
-              onLocationSelected: (locationId) =>
-                  viewModel.selectLocation(locationId),
+            // Location Selector (left)
+            SizedBox(
+              width: locationWidth,
+              child: _LocationChip(
+                locations: state.locations,
+                selectedLocationId: state.selectedLocationId,
+                onLocationSelected: (locationId) =>
+                    viewModel.selectLocation(locationId),
+              ),
             ),
-            const _OnlineChip(),
+            SizedBox(width: spacing),
+            // Online Status Chip (right)
+            SizedBox(width: statusWidth, child: const _OnlineChip()),
           ],
         ),
         const SizedBox(height: 16),
@@ -829,20 +799,28 @@ class _LocationChip extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.kitchen, color: AppColors.mango),
+              const Icon(Icons.kitchen, color: AppColors.mango, size: 20),
               const SizedBox(width: 8),
-              Text(
-                displayName,
-                style: TextStyle(
-                  color: isDark
-                      ? AppColors.darkTextPrimary
-                      : AppColors.deepGreen,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
+              Expanded(
+                child: Text(
+                  displayName,
+                  style: TextStyle(
+                    color: isDark
+                        ? AppColors.darkTextPrimary
+                        : AppColors.deepGreen,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-              const SizedBox(width: 8),
-              const Icon(Icons.arrow_drop_down, color: AppColors.mango),
+              const SizedBox(width: 4),
+              const Icon(
+                Icons.arrow_drop_down,
+                color: AppColors.mango,
+                size: 20,
+              ),
             ],
           ),
         ),

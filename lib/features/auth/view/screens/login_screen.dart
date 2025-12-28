@@ -62,8 +62,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     ref.listen<AsyncValue<AuthState>>(authViewModelProvider, (previous, next) {
       if (!_hasNavigated && next.value?.isAuthenticated == true && mounted) {
         _hasNavigated = true;
-        // Navigate to inventory overview using go_router
-        context.go('/inventory');
+        // Navigate to dashboard using go_router
+        context.go('/dashboard');
       }
     });
 
