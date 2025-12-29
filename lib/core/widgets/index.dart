@@ -7,6 +7,7 @@
 export 'action_card.dart';
 export 'app_card.dart';
 export 'bottom_nav_bar.dart';
+export 'error_overlay.dart';
 export 'info_badge.dart';
 export 'kpi_card.dart';
 export 'pill_button.dart';

@@ -5,12 +5,15 @@ import 'package:juix_na/features/auth/view/screens/login_screen.dart';
 import 'package:juix_na/features/auth/viewmodel/auth_state.dart';
 import 'package:juix_na/features/auth/viewmodel/auth_vm.dart';
 import 'package:juix_na/features/dashboard/view/screens/dashboard_screen.dart';
+import 'package:juix_na/features/dashboard/view/screens/inventory_clerk_dashboard_screen.dart';
 import 'package:juix_na/features/inventory/view/screens/cycle_counts_screen.dart';
 import 'package:juix_na/features/inventory/view/screens/inventory_overview_screen.dart';
 import 'package:juix_na/features/inventory/view/screens/reorder_alerts_screen.dart';
 import 'package:juix_na/features/inventory/view/screens/stock_movement_screen.dart';
 import 'package:juix_na/features/inventory/view/screens/stock_transfer_screen.dart';
 import 'package:juix_na/features/inventory/view/screens/transfer_history_screen.dart';
+import 'package:juix_na/features/production/view/screens/purchase_entry_screen.dart';
+import 'package:juix_na/features/production/view/screens/stocking_hub_screen.dart';
 
 /// Router configuration for the app using go_router.
 /// Handles authentication guards and route definitions.
@@ -21,7 +24,7 @@ final routerProvider = Provider<GoRouter>((ref) {
 
   return GoRouter(
     // TODO: Re-enable authentication redirect logic when testing is complete
-    // For now, bypass authentication and go straight to dashboard
+    // For now, bypass authentication and go straight to dashboard for testing
     initialLocation: '/dashboard',
     debugLogDiagnostics: true,
     redirect: (context, state) {
@@ -114,6 +117,21 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/dashboard',
         name: 'dashboard',
         builder: (context, state) => const DashboardScreen(),
+      ),
+      GoRoute(
+        path: '/dashboard/inventory-clerk',
+        name: 'inventory-clerk-dashboard',
+        builder: (context, state) => const InventoryClerkDashboardScreen(),
+      ),
+      GoRoute(
+        path: '/production/stocking-hub',
+        name: 'stocking-hub',
+        builder: (context, state) => const StockingHubScreen(),
+      ),
+      GoRoute(
+        path: '/production/purchase-entry',
+        name: 'purchase-entry',
+        builder: (context, state) => const PurchaseEntryScreen(),
       ),
     ],
     errorBuilder: (context, state) => Scaffold(

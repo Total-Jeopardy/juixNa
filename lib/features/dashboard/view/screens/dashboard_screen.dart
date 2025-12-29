@@ -10,10 +10,13 @@ import 'package:juix_na/core/auth/auth_error_handler.dart';
 import 'package:juix_na/core/network/api_result.dart';
 import 'package:juix_na/core/utils/error_display.dart';
 import 'package:juix_na/core/widgets/bottom_nav_bar.dart';
+import 'package:juix_na/core/widgets/error_overlay.dart';
 import 'package:juix_na/features/dashboard/model/dashboard_models.dart';
 import 'package:juix_na/features/dashboard/viewmodel/dashboard_vm.dart';
 import 'package:juix_na/features/inventory/model/inventory_models.dart';
 import 'package:juix_na/features/inventory/viewmodel/inventory_overview_vm.dart';
+import 'package:juix_na/features/auth/viewmodel/auth_vm.dart';
+import 'package:juix_na/features/auth/model/user_models.dart';
 
 /// Dashboard Screen - Skeleton Framework
 ///
@@ -55,107 +58,192 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final currentLocation = GoRouterState.of(context).uri.path;
     final currentIndex = _getCurrentNavIndex(currentLocation);
 
-    // Handle loading and error states gracefully
-    if (dashboardState.isLoading) {
-      return Scaffold(
-        backgroundColor: const Color(0xFFFDF7EE),
-        body: const Center(child: CircularProgressIndicator()),
-        bottomNavigationBar: CustomBottomNavBar(currentIndex: currentIndex),
-      );
-    }
+    // TEMPORARY: Disabled loading/error/empty states for testing - always show dashboard data
+    // Determine if we should show loading skeleton
+    // Show skeleton if main loading is true, or if individual sections are loading with no data
+    // final state = dashboardState.value;
+    const shouldShowSkeleton = false;
+    // final shouldShowSkeleton =
+    //     dashboardState.isLoading ||
+    //     (state != null && state.isLoadingKPIs == true && state.kpis == null) ||
+    //     (state != null &&
+    //         state.isLoadingCharts == true &&
+    //         state.productSalesChart.isEmpty &&
+    //         state.salesTrendChart.isEmpty &&
+    //         (state.inventoryValueChart == null ||
+    //             state.inventoryValueChart!.isEmpty)) ||
+    //     (state != null &&
+    //         state.isLoadingAlerts == true &&
+    //         state.alerts.isEmpty);
 
-    // Handle AsyncValue errors using when() pattern
-    // This handles both provider-level errors (AsyncError) and state-level errors (state.error)
-    dashboardState.when(
-      data: (state) {
-        // Show error from state.error (state-level errors from ViewModel)
-        if (state.error != null && state.error!.isNotEmpty) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (context.mounted) {
-              ErrorDisplay.showError(
-                context,
-                ApiError(type: ApiErrorType.unknown, message: state.error!),
-                onRetry: () {
-                  final viewModel = ref.read(dashboardProvider.notifier);
-                  viewModel.loadDashboardData();
-                },
-              );
-            }
-          });
-        }
-      },
-      error: (error, stackTrace) {
-        // Handle AsyncValue error (provider-level error - e.g., initial load failure)
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (context.mounted) {
-            ErrorDisplay.showError(
-              context,
-              ApiError(type: ApiErrorType.unknown, message: error.toString()),
-              onRetry: () {
-                final viewModel = ref.read(dashboardProvider.notifier);
-                viewModel.loadDashboardData();
-              },
-            );
-          }
-        });
-      },
-      loading: () {
-        // Loading state handled above with early return
-      },
-    );
+    // Determine if we should show empty state overlay
+    // Show empty state when not loading and no meaningful data exists
+    // Consider KPIs with zero values as empty (allowing for "zeros but no activity" scenario)
+    // TEMPORARY: Disabled for testing - always hide empty state
+    final shouldShowEmptyState = false;
+    // final hasNoKPIData =
+    //     state?.kpis == null ||
+    //     (state!.kpis!.totalSales == 0.0 &&
+    //         state.kpis!.totalExpenses == 0.0 &&
+    //         (state.kpis!.totalProfit == null ||
+    //             state.kpis!.totalProfit == 0.0));
+    // // Note: Chart emptiness check includes productSalesChart, salesTrendChart, and inventoryValueChart.
+    // // Expenses and channels charts are not checked here (fine for current scope, but keep in mind if added later).
+    // final shouldShowEmptyState =
+    //     !shouldShowSkeleton &&
+    //     state != null &&
+    //     hasNoKPIData &&
+    //     state.productSalesChart.isEmpty &&
+    //     state.salesTrendChart.isEmpty &&
+    //     (state.inventoryValueChart == null ||
+    //         state.inventoryValueChart!.isEmpty) &&
+    //     state.alerts.isEmpty;
+
+    // TEMPORARY: Commented out for testing - skeleton loading disabled
+    // Handle loading and error states gracefully
+    // if (shouldShowSkeleton) {
+    //   return Scaffold(
+    //     backgroundColor: const Color(0xFFFDF7EE),
+    //     bottomNavigationBar: CustomBottomNavBar(currentIndex: currentIndex),
+    //     body: SafeArea(
+    //       child: RefreshIndicator(
+    //         onRefresh: () async {
+    //           final viewModel = ref.read(dashboardProvider.notifier);
+    //           await viewModel.loadDashboardData();
+    //         },
+    //         child: SingleChildScrollView(
+    //           physics: const AlwaysScrollableScrollPhysics(),
+    //           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+    //           child: Column(
+    //             crossAxisAlignment: CrossAxisAlignment.start,
+    //             children: [
+    //               // Loading skeleton view
+    //               _LoadingView(),
+    //             ],
+    //           ),
+    //         ),
+    //       ),
+    //     ),
+    //   );
+    // }
+
+    // TEMPORARY: Commented out for testing - error overlay disabled
+    // Determine if we should show error overlay
+    // Show error overlay when there's an error (AsyncError or state.error)
+    // String? errorMessage;
+    // String? lastSuccessfulUpdate;
+    // dashboardState.when(
+    //   data: (state) {
+    //     if (state.error != null && state.error!.isNotEmpty) {
+    //       errorMessage = state.error;
+    //       // Format last successful update time if available
+    //       if (state.lastSyncTime != null) {
+    //         final now = DateTime.now();
+    //         final difference = now.difference(state.lastSyncTime!);
+    //         if (difference.inMinutes < 1) {
+    //           lastSuccessfulUpdate = 'Last successful update: just now';
+    //         } else if (difference.inMinutes < 60) {
+    //           lastSuccessfulUpdate =
+    //               'Last successful update: ${difference.inMinutes}m ago';
+    //         } else if (difference.inHours < 24) {
+    //           lastSuccessfulUpdate =
+    //               'Last successful update: ${difference.inHours}h ago';
+    //         } else {
+    //           lastSuccessfulUpdate =
+    //               'Last successful update: ${difference.inDays}d ago';
+    //         }
+    //       }
+    //     }
+    //   },
+    //   error: (error, stackTrace) {
+    //     errorMessage = error.toString();
+    //   },
+    //   loading: () {
+    //     // Loading state handled above with early return
+    //   },
+    // );
+    // final shouldShowErrorOverlay =
+    //     !shouldShowSkeleton && errorMessage != null && errorMessage!.isNotEmpty;
+    const shouldShowErrorOverlay = false;
 
     return Scaffold(
       backgroundColor: const Color(0xFFFDF7EE), // Light cream background
       bottomNavigationBar: CustomBottomNavBar(currentIndex: currentIndex),
-      body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: () async {
-            // Refresh dashboard data
-            final viewModel = ref.read(dashboardProvider.notifier);
-            await viewModel.loadDashboardData();
-          },
-          child: SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // 1. AppBar (Dashboard title, refresh, notification, profile)
-                _AppBar(),
+      body: Stack(
+        children: [
+          SafeArea(
+            child: RefreshIndicator(
+              onRefresh: () async {
+                // Refresh dashboard data
+                final viewModel = ref.read(dashboardProvider.notifier);
+                await viewModel.loadDashboardData();
+              },
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 2,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // 1. AppBar (Dashboard title, refresh, notification, profile)
+                    _AppBar(),
 
-                // 2. Online Status Chip (green dot + "Online" + "Last updated Xm ago")
-                Center(child: _OnlineStatusChip()),
+                    // 2. Online Status Chip (green dot + "Online" + "Last updated Xm ago")
+                    Center(child: _OnlineStatusChip()),
 
-                const SizedBox(height: 16),
+                    const SizedBox(height: 16),
 
-                // 3. Filter Chips Row (Location dropdown, Period selector)
-                _FilterChipsRow(),
+                    // 3. Filter Chips Row (Location dropdown, Period selector)
+                    _FilterChipsRow(),
 
-                const SizedBox(height: 16),
+                    const SizedBox(height: 16),
 
-                // 4. KPI Cards Row (Total Sales, Total Expenses)
-                _KPICardsRow(),
+                    // 4. KPI Cards Row (Total Sales, Total Expenses, Total Profit)
+                    _KPICardsRow(),
 
-                const SizedBox(height: 20),
+                    const SizedBox(height: 20),
 
-                // 5. Quick Actions Section
-                _QuickActionsSection(),
+                    // 5. Quick Actions Section
+                    _QuickActionsSection(),
 
-                const SizedBox(height: 20),
+                    const SizedBox(height: 20),
 
-                // 6. Analytics Overview Section
-                _AnalyticsOverviewSection(),
+                    // 6. Analytics Overview Section
+                    _AnalyticsOverviewSection(),
 
-                const SizedBox(height: 20),
+                    const SizedBox(height: 20),
 
-                // 7. Alerts Section
-                _AlertsSection(),
+                    // 7. Alerts Section
+                    _AlertsSection(),
 
-                const SizedBox(height: 20),
-              ],
+                    const SizedBox(height: 20),
+                  ],
+                ),
+              ),
             ),
           ),
-        ),
+          // TEMPORARY: Commented out for testing - empty/error overlays disabled
+          // Empty state overlay with blurred background
+          // if (shouldShowEmptyState) _EmptyStateOverlay(),
+          // Error overlay with blurred background
+          // if (shouldShowErrorOverlay)
+          //   ErrorOverlay(
+          //     title: "Can't load dashboard right now",
+          //     message:
+          //         "We're having trouble connecting. Check your internet connection and try again.",
+          //     onRetry: () {
+          //       final viewModel = ref.read(dashboardProvider.notifier);
+          //       viewModel.loadDashboardData();
+          //     },
+          //     secondaryLabel: 'Open Inventory',
+          //     onSecondary: () {
+          //       context.go('/inventory');
+          //     },
+          //     lastUpdatedText: lastSuccessfulUpdate,
+          //   ),
+        ],
       ),
     );
   }
@@ -781,6 +869,27 @@ class _KPICardsRow extends ConsumerWidget {
     final kpis = dashboardState.value?.kpis;
     final isLoadingKPIs = dashboardState.value?.isLoadingKPIs ?? false;
 
+    // Get current user for role-based visibility
+    final user = ref.watch(currentUserProvider);
+    final hasAdminRole = user?.isAdmin ?? false;
+    final hasManagerRole = user?.isManager ?? false;
+    final hasSalesRole = user?.hasRole('sales') ?? false;
+    final hasAccountantRole = user?.hasRole('accountant') ?? false;
+
+    // Determine which KPIs to show based on role
+    // Admin/Manager: All KPIs (Sales, Expenses, Profit)
+    // Sales: Total Sales only
+    // Accountant: Total Expenses, Total Profit
+    // Inventory: None (they use inventory clerk dashboard)
+    final showSalesKPI = hasAdminRole || hasManagerRole || hasSalesRole;
+    final showExpensesKPI = hasAdminRole || hasManagerRole || hasAccountantRole;
+    final showProfitKPI = hasAdminRole || hasManagerRole || hasAccountantRole;
+
+    // If no KPIs should be shown for this role, show empty state
+    if (!showSalesKPI && !showExpensesKPI && !showProfitKPI) {
+      return const SizedBox.shrink();
+    }
+
     return SizedBox(
       height: 148, // Fixed height matching card height
       child: isLoadingKPIs && kpis == null
@@ -789,150 +898,157 @@ class _KPICardsRow extends ConsumerWidget {
               scrollDirection: Axis.horizontal,
               child: Row(
                 children: [
-                  // Total Sales Card
-                  _KPICard(
-                    title: 'Total Sales',
-                    value: kpis != null
-                        ? _formatCurrency(kpis.totalSales)
-                        : '\$0',
-                    trend: kpis?.salesTrend != null
-                        ? '${_formatTrend(kpis!.salesTrend)} vs last period'
-                        : 'No data',
-                    icon: Icons.attach_money,
-                    isGradient: true,
-                    onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: const Row(
-                            children: [
-                              Icon(
-                                Icons.info_outline,
-                                color: Colors.white,
-                                size: 20,
-                              ),
-                              SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  'Sales detail screen coming soon',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
+                  // Total Sales Card (if role has access)
+                  if (showSalesKPI)
+                    _KPICard(
+                      title: 'Total Sales',
+                      value: kpis != null
+                          ? _formatCurrency(kpis.totalSales)
+                          : '\$0',
+                      trend: kpis?.salesTrend != null
+                          ? '${_formatTrend(kpis!.salesTrend)} vs last period'
+                          : 'No data',
+                      icon: Icons.attach_money,
+                      isGradient: true,
+                      onTap: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: const Row(
+                              children: [
+                                Icon(
+                                  Icons.info_outline,
+                                  color: Colors.white,
+                                  size: 20,
+                                ),
+                                SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    'Sales detail screen coming soon',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
+                            backgroundColor: AppColors.info,
+                            duration: const Duration(seconds: 2),
+                            behavior: SnackBarBehavior.floating,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            margin: const EdgeInsets.all(16),
                           ),
-                          backgroundColor: AppColors.info,
-                          duration: const Duration(seconds: 2),
-                          behavior: SnackBarBehavior.floating,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          margin: const EdgeInsets.all(16),
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(width: 12),
-                  // Total Expenses Card
-                  _KPICard(
-                    title: 'Total Expenses',
-                    value: kpis != null
-                        ? _formatCurrency(kpis.totalExpenses)
-                        : '\$0',
-                    trend: kpis?.expensesTrend != null
-                        ? _formatTrend(kpis!.expensesTrend)
-                        : 'No data',
-                    icon: Icons.receipt,
-                    isGradient: false, // White background
-                    onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: const Row(
-                            children: [
-                              Icon(
-                                Icons.info_outline,
-                                color: Colors.white,
-                                size: 20,
-                              ),
-                              SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  'Expenses detail screen coming soon',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
+                        );
+                      },
+                    ),
+                  if (showSalesKPI && showExpensesKPI)
+                    const SizedBox(width: 12),
+                  // Total Expenses Card (if role has access)
+                  if (showExpensesKPI)
+                    _KPICard(
+                      title: 'Total Expenses',
+                      value: kpis != null
+                          ? _formatCurrency(kpis.totalExpenses)
+                          : '\$0',
+                      trend: kpis?.expensesTrend != null
+                          ? _formatTrend(kpis!.expensesTrend)
+                          : 'No data',
+                      icon: Icons.receipt,
+                      isGradient: false, // White background
+                      onTap: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: const Row(
+                              children: [
+                                Icon(
+                                  Icons.info_outline,
+                                  color: Colors.white,
+                                  size: 20,
+                                ),
+                                SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    'Expenses detail screen coming soon',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
+                            backgroundColor: AppColors.info,
+                            duration: const Duration(seconds: 2),
+                            behavior: SnackBarBehavior.floating,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            margin: const EdgeInsets.all(16),
                           ),
-                          backgroundColor: AppColors.info,
-                          duration: const Duration(seconds: 2),
-                          behavior: SnackBarBehavior.floating,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          margin: const EdgeInsets.all(16),
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(width: 12),
-                  // Total Profit Card
-                  _KPICard(
-                    title: 'Total Profit',
-                    value: kpis != null && kpis.totalProfit != null
-                        ? _formatCurrency(kpis.totalProfit!)
-                        : kpis != null
-                        ? _formatCurrency(kpis.totalSales - kpis.totalExpenses)
-                        : '\$0',
-                    trend: kpis?.profitTrend != null
-                        ? '${_formatTrend(kpis!.profitTrend)} vs last period'
-                        : kpis != null
-                        ? 'Calculated'
-                        : 'No data',
-                    icon: Icons.trending_up,
-                    isGradient: false,
-                    backgroundColor: AppColors.success.withOpacity(
-                      0.1,
-                    ), // Light green tint
-                    onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: const Row(
-                            children: [
-                              Icon(
-                                Icons.info_outline,
-                                color: Colors.white,
-                                size: 20,
-                              ),
-                              SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  'Profit detail screen coming soon',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
+                        );
+                      },
+                    ),
+                  if ((showSalesKPI || showExpensesKPI) && showProfitKPI)
+                    const SizedBox(width: 12),
+                  // Total Profit Card (if role has access)
+                  if (showProfitKPI)
+                    _KPICard(
+                      title: 'Total Profit',
+                      value: kpis != null && kpis.totalProfit != null
+                          ? _formatCurrency(kpis.totalProfit!)
+                          : kpis != null
+                          ? _formatCurrency(
+                              kpis.totalSales - kpis.totalExpenses,
+                            )
+                          : '\$0',
+                      trend: kpis?.profitTrend != null
+                          ? '${_formatTrend(kpis!.profitTrend)} vs last period'
+                          : kpis != null
+                          ? 'Calculated'
+                          : 'No data',
+                      icon: Icons.trending_up,
+                      isGradient: false,
+                      backgroundColor: AppColors.success.withOpacity(
+                        0.1,
+                      ), // Light green tint
+                      onTap: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: const Row(
+                              children: [
+                                Icon(
+                                  Icons.info_outline,
+                                  color: Colors.white,
+                                  size: 20,
+                                ),
+                                SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    'Profit detail screen coming soon',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
+                            backgroundColor: AppColors.info,
+                            duration: const Duration(seconds: 2),
+                            behavior: SnackBarBehavior.floating,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            margin: const EdgeInsets.all(16),
                           ),
-                          backgroundColor: AppColors.info,
-                          duration: const Duration(seconds: 2),
-                          behavior: SnackBarBehavior.floating,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          margin: const EdgeInsets.all(16),
-                        ),
-                      );
-                    },
-                  ),
+                        );
+                      },
+                    ),
                 ],
               ),
             ),
@@ -1091,6 +1207,25 @@ class _QuickActionsSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Get current user for role-based visibility
+    final user = ref.watch(currentUserProvider);
+    final hasAdminRole = user?.isAdmin ?? false;
+    final hasManagerRole = user?.isManager ?? false;
+    final hasSalesRole = user?.hasRole('sales') ?? false;
+    final hasProductionRole = user?.hasRole('production') ?? false;
+    final hasAccountantRole = user?.hasRole('accountant') ?? false;
+
+    // Determine which Quick Actions to show based on role
+    // Admin/Manager: All actions (Inventory, Sales, Production, Reports)
+    // Sales: Inventory, Sales (if available), Reports
+    // Production: Inventory, Production (if available)
+    // Accountant: Inventory, Reports
+    // TODO: When auth is re-enabled, restore role-based visibility
+    // For now, show all actions for testing
+    final showSalesAction = true; // Always show for testing
+    final showProductionAction = true; // Always show for testing
+    final showReportsAction = true; // Always show for testing
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1128,52 +1263,99 @@ class _QuickActionsSection extends ConsumerWidget {
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: _QuickActionCard(
-                    icon: Icons.shopping_bag,
-                    title: 'Sales',
-                    subtitle: 'Manage POS & Orders',
-                    badge: 'Coming Soon',
-                    badgeIcon: Icons.lock_outline,
-                    iconBackgroundColor:
-                        AppColors.surfaceMuted, // Light gray circle
-                    iconColor: AppColors.textSecondary, // Dark gray icon
-                    titleColor:
-                        AppColors.textSecondary, // Gray title (still bold)
-                    isDisabled: true,
-                    onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: const Row(
-                            children: [
-                              Icon(
-                                Icons.info_outline,
-                                color: Colors.white,
-                                size: 20,
-                              ),
-                              SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  'Sales module coming soon',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                  child: showSalesAction
+                      ? _QuickActionCard(
+                          icon: Icons.shopping_bag,
+                          title: 'Sales',
+                          subtitle: 'Manage POS & Orders',
+                          badge: 'Coming Soon',
+                          badgeIcon: Icons.lock_outline,
+                          iconBackgroundColor:
+                              AppColors.surfaceMuted, // Light gray circle
+                          iconColor: AppColors.textSecondary, // Dark gray icon
+                          titleColor: AppColors
+                              .textSecondary, // Gray title (still bold)
+                          isDisabled: true,
+                          onTap: () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: const Row(
+                                  children: [
+                                    Icon(
+                                      Icons.info_outline,
+                                      color: Colors.white,
+                                      size: 20,
+                                    ),
+                                    SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        'Sales module coming soon',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
+                                backgroundColor: AppColors.info,
+                                duration: const Duration(seconds: 2),
+                                behavior: SnackBarBehavior.floating,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                margin: const EdgeInsets.all(16),
                               ),
-                            ],
-                          ),
-                          backgroundColor: AppColors.info,
-                          duration: const Duration(seconds: 2),
-                          behavior: SnackBarBehavior.floating,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          margin: const EdgeInsets.all(16),
+                            );
+                          },
+                        )
+                      : _QuickActionCard(
+                          icon: Icons.shopping_bag,
+                          title: 'Sales',
+                          subtitle: 'Manage POS & Orders',
+                          badge: 'NO ACCESS',
+                          badgeIcon: null, // No icon for NO ACCESS
+                          iconBackgroundColor:
+                              AppColors.surfaceMuted, // Light gray circle
+                          iconColor: AppColors.textSecondary, // Dark gray icon
+                          titleColor: AppColors
+                              .textSecondary, // Gray title (still bold)
+                          isDisabled: true,
+                          onTap: () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: const Row(
+                                  children: [
+                                    Icon(
+                                      Icons.info_outline,
+                                      color: Colors.white,
+                                      size: 20,
+                                    ),
+                                    SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        'Access denied: You do not have permission to access Sales.',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                backgroundColor: AppColors.info,
+                                duration: const Duration(seconds: 2),
+                                behavior: SnackBarBehavior.floating,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                margin: const EdgeInsets.all(16),
+                              ),
+                            );
+                          },
                         ),
-                      );
-                    },
-                  ),
                 ),
               ],
             ),
@@ -1182,101 +1364,167 @@ class _QuickActionsSection extends ConsumerWidget {
             Row(
               children: [
                 Expanded(
-                  child: _QuickActionCard(
-                    icon: Icons.factory,
-                    title: 'Production',
-                    subtitle: 'Juice mixing queue',
-                    badge: 'Soon',
-                    badgeIcon: Icons.access_time,
-                    iconBackgroundColor:
-                        AppColors.surfaceMuted, // Light gray circle
-                    iconColor: AppColors.textSecondary, // Dark gray icon
-                    titleColor:
-                        AppColors.textSecondary, // Gray title (still bold)
-                    isDisabled: true,
-                    onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: const Row(
-                            children: [
-                              Icon(
-                                Icons.info_outline,
-                                color: Colors.white,
-                                size: 20,
-                              ),
-                              SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  'Production module coming soon',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                  child: showProductionAction
+                      ? _QuickActionCard(
+                          icon: Icons.factory,
+                          title: 'Production',
+                          subtitle: 'Juice mixing queue',
+                          backgroundColor: const Color(
+                            0xFFFFE5D6,
+                          ), // Light peach
+                          iconBackgroundColor: const Color(
+                            0xFFFFD4B3,
+                          ), // Slightly darker peach circle
+                          iconColor: const Color(
+                            0xFFFFBD3B,
+                          ), // Golden-yellow icon
+                          titleColor: AppColors.deepGreen,
+                          onTap: () {
+                            context.go('/production/purchase-entry');
+                          },
+                        )
+                      : _QuickActionCard(
+                          icon: Icons.factory,
+                          title: 'Production',
+                          subtitle: 'Juice mixing queue',
+                          badge: 'NO ACCESS',
+                          badgeIcon: null, // No icon for NO ACCESS
+                          iconBackgroundColor:
+                              AppColors.surfaceMuted, // Light gray circle
+                          iconColor: AppColors.textSecondary, // Dark gray icon
+                          titleColor: AppColors
+                              .textSecondary, // Gray title (still bold)
+                          isDisabled: true,
+                          onTap: () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: const Row(
+                                  children: [
+                                    Icon(
+                                      Icons.info_outline,
+                                      color: Colors.white,
+                                      size: 20,
+                                    ),
+                                    SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        'Access denied: You do not have permission to access Production.',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
+                                backgroundColor: AppColors.info,
+                                duration: const Duration(seconds: 2),
+                                behavior: SnackBarBehavior.floating,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                margin: const EdgeInsets.all(16),
                               ),
-                            ],
-                          ),
-                          backgroundColor: AppColors.info,
-                          duration: const Duration(seconds: 2),
-                          behavior: SnackBarBehavior.floating,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          margin: const EdgeInsets.all(16),
+                            );
+                          },
                         ),
-                      );
-                    },
-                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: _QuickActionCard(
-                    icon: Icons.bar_chart,
-                    title: 'Reports',
-                    subtitle: 'Analytics & PDF',
-                    badge: 'Soon',
-                    badgeIcon: Icons.lock_outline,
-                    iconBackgroundColor:
-                        AppColors.surfaceMuted, // Light gray circle
-                    iconColor: AppColors.textSecondary, // Dark gray icon
-                    titleColor:
-                        AppColors.textSecondary, // Gray title (still bold)
-                    isDisabled: true,
-                    onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: const Row(
-                            children: [
-                              Icon(
-                                Icons.info_outline,
-                                color: Colors.white,
-                                size: 20,
-                              ),
-                              SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  'Reports module coming soon',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                  child: showReportsAction
+                      ? _QuickActionCard(
+                          icon: Icons.bar_chart,
+                          title: 'Reports',
+                          subtitle: 'Analytics & PDF',
+                          badge: 'Soon',
+                          badgeIcon: Icons.lock_outline,
+                          iconBackgroundColor:
+                              AppColors.surfaceMuted, // Light gray circle
+                          iconColor: AppColors.textSecondary, // Dark gray icon
+                          titleColor: AppColors
+                              .textSecondary, // Gray title (still bold)
+                          isDisabled: true,
+                          onTap: () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: const Row(
+                                  children: [
+                                    Icon(
+                                      Icons.info_outline,
+                                      color: Colors.white,
+                                      size: 20,
+                                    ),
+                                    SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        'Reports module coming soon',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
+                                backgroundColor: AppColors.info,
+                                duration: const Duration(seconds: 2),
+                                behavior: SnackBarBehavior.floating,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                margin: const EdgeInsets.all(16),
                               ),
-                            ],
-                          ),
-                          backgroundColor: AppColors.info,
-                          duration: const Duration(seconds: 2),
-                          behavior: SnackBarBehavior.floating,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          margin: const EdgeInsets.all(16),
+                            );
+                          },
+                        )
+                      : _QuickActionCard(
+                          icon: Icons.bar_chart,
+                          title: 'Reports',
+                          subtitle: 'Analytics & PDF',
+                          badge: 'NO ACCESS',
+                          badgeIcon: null, // No icon for NO ACCESS
+                          iconBackgroundColor:
+                              AppColors.surfaceMuted, // Light gray circle
+                          iconColor: AppColors.textSecondary, // Dark gray icon
+                          titleColor: AppColors
+                              .textSecondary, // Gray title (still bold)
+                          isDisabled: true,
+                          onTap: () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: const Row(
+                                  children: [
+                                    Icon(
+                                      Icons.info_outline,
+                                      color: Colors.white,
+                                      size: 20,
+                                    ),
+                                    SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        'Access denied: You do not have permission to access Reports.',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                backgroundColor: AppColors.info,
+                                duration: const Duration(seconds: 2),
+                                behavior: SnackBarBehavior.floating,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                margin: const EdgeInsets.all(16),
+                              ),
+                            );
+                          },
                         ),
-                      );
-                    },
-                  ),
                 ),
               ],
             ),
@@ -1484,6 +1732,37 @@ class _AnalyticsOverviewSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Get current user for role-based visibility
+    final user = ref.watch(currentUserProvider);
+    final hasAdminRole = user?.isAdmin ?? false;
+    final hasManagerRole = user?.isManager ?? false;
+    final hasSalesRole = user?.hasRole('sales') ?? false;
+    final hasAccountantRole = user?.hasRole('accountant') ?? false;
+    final hasInventoryRole = user?.hasRole('inventory') ?? false;
+
+    // Determine which charts to show based on role
+    // Admin/Manager: Sales Trend, Top Products, Expense Pie, Channel Sales, Inventory Value
+    // Sales: Sales Trend, Top Products only
+    // Accountant: Sales Trend, Expense Pie
+    // Inventory: Inventory Value only (optional view)
+    final showSalesTrendChart =
+        hasAdminRole || hasManagerRole || hasSalesRole || hasAccountantRole;
+    final showTopProductsChart = hasAdminRole || hasManagerRole || hasSalesRole;
+    final showExpenseChart =
+        hasAdminRole || hasManagerRole || hasAccountantRole;
+    final showChannelChart = hasAdminRole || hasManagerRole;
+    final showInventoryValueChart =
+        hasAdminRole || hasManagerRole || hasInventoryRole;
+
+    // If no charts should be shown for this role, show empty state
+    if (!showSalesTrendChart &&
+        !showTopProductsChart &&
+        !showExpenseChart &&
+        !showChannelChart &&
+        !showInventoryValueChart) {
+      return const SizedBox.shrink();
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1495,11 +1774,25 @@ class _AnalyticsOverviewSection extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: 12),
-        // Sales Trend Card
-        _SalesTrendCard(),
-        const SizedBox(height: 12),
-        // Top Products Card
-        _TopProductsCard(),
+        // Sales Trend Card (if role has access)
+        if (showSalesTrendChart) ...[
+          _SalesTrendCard(),
+          const SizedBox(height: 12),
+        ],
+        // Top Products Card (if role has access)
+        if (showTopProductsChart) ...[
+          _TopProductsCard(),
+          const SizedBox(height: 12),
+        ],
+        if (showExpenseChart) ...[
+          _ExpenseChartCard(),
+          const SizedBox(height: 12),
+        ],
+        if (showChannelChart) ...[
+          _ChannelSalesCard(),
+          const SizedBox(height: 12),
+        ],
+        if (showInventoryValueChart) const _InventoryValueCard(),
       ],
     );
   }
@@ -1623,9 +1916,27 @@ class _SalesTrendCard extends ConsumerWidget {
           else
             SizedBox(
               height: 200,
-              child: _SalesTrendBarChart(data: displayData),
+              child: _SalesTrendBarChart(
+                data: displayData,
+                onBarTap: (point) => _handleSalesTrendBarTap(context, point),
+              ),
             ),
         ],
+      ),
+    );
+  }
+
+  void _handleSalesTrendBarTap(BuildContext context, SalesTrendPoint point) {
+    final amount = point.salesAmount.toStringAsFixed(0);
+    final day = point.dayLabel;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Sales on $day: \$$amount (navigation coming soon)'),
+        backgroundColor: AppColors.mango,
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.all(16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        duration: const Duration(seconds: 2),
       ),
     );
   }
@@ -1634,8 +1945,9 @@ class _SalesTrendCard extends ConsumerWidget {
 /// Sales Trend Bar Chart Widget
 class _SalesTrendBarChart extends StatelessWidget {
   final List<SalesTrendPoint> data;
+  final ValueChanged<SalesTrendPoint>? onBarTap;
 
-  const _SalesTrendBarChart({required this.data});
+  const _SalesTrendBarChart({required this.data, this.onBarTap});
 
   String _formatCurrency(double amount) {
     return '\$${amount.toStringAsFixed(0)}';
@@ -1670,7 +1982,21 @@ class _SalesTrendBarChart extends StatelessWidget {
                 alignment: BarChartAlignment.spaceAround,
                 maxY: maxValue * 1.15, // Add 15% padding at top
                 minY: 0,
-                barTouchData: BarTouchData(enabled: false),
+                barTouchData: BarTouchData(
+                  enabled: true,
+                  touchCallback: (event, response) {
+                    if (onBarTap == null) return;
+                    if (!event.isInterestedForInteractions ||
+                        response == null ||
+                        response.spot == null) {
+                      return;
+                    }
+                    final index = response.spot!.touchedBarGroupIndex;
+                    if (index >= 0 && index < data.length) {
+                      onBarTap!(data[index]);
+                    }
+                  },
+                ),
                 titlesData: FlTitlesData(
                   show: true,
                   bottomTitles: AxisTitles(
@@ -1893,7 +2219,11 @@ class _TopProductsCard extends ConsumerWidget {
                   child: Stack(
                     alignment: Alignment.center,
                     children: [
-                      _TopProductsDonutChart(data: topProducts),
+                      _TopProductsDonutChart(
+                        data: topProducts,
+                        onSliceTap: (product) =>
+                            _handleProductTap(context, product),
+                      ),
                       // Center text "Top 3"
                       Text(
                         'Top 3',
@@ -1910,6 +2240,22 @@ class _TopProductsCard extends ConsumerWidget {
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  void _handleProductTap(BuildContext context, ProductSales product) {
+    final percent = product.percentage.toStringAsFixed(0);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          '${product.productName} • $percent% (navigation coming soon)',
+        ),
+        backgroundColor: AppColors.mango,
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.all(16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        duration: const Duration(seconds: 2),
       ),
     );
   }
@@ -1953,8 +2299,9 @@ class _ProductItem extends StatelessWidget {
 /// Top Products Donut Chart Widget
 class _TopProductsDonutChart extends StatelessWidget {
   final List<ProductSales> data;
+  final ValueChanged<ProductSales>? onSliceTap;
 
-  const _TopProductsDonutChart({required this.data});
+  const _TopProductsDonutChart({required this.data, this.onSliceTap});
 
   /// Get color for product based on name
   Color _getProductColor(String productName, int index) {
@@ -1993,6 +2340,20 @@ class _TopProductsDonutChart extends StatelessWidget {
       PieChartData(
         sectionsSpace: 1, // Very small gap between segments
         centerSpaceRadius: 40, // Larger hole = much thinner donut ring
+        pieTouchData: PieTouchData(
+          touchCallback: (event, response) {
+            if (onSliceTap == null) return;
+            if (!event.isInterestedForInteractions ||
+                response == null ||
+                response.touchedSection == null) {
+              return;
+            }
+            final index = response.touchedSection!.touchedSectionIndex;
+            if (index >= 0 && index < data.length) {
+              onSliceTap!(data[index]);
+            }
+          },
+        ),
         sections: List.generate(data.length, (index) {
           final product = data[index];
           return PieChartSectionData(
@@ -2010,10 +2371,471 @@ class _TopProductsDonutChart extends StatelessWidget {
   }
 }
 
+/// Expense Pie Chart Card
+class _ExpenseChartCard extends ConsumerWidget {
+  const _ExpenseChartCard();
+
+  List<ExpenseCategory> _getDummyData() {
+    return [
+      ExpenseCategory(category: 'Production', amount: 3200, percentage: 40),
+      ExpenseCategory(category: 'Logistics', amount: 2400, percentage: 30),
+      ExpenseCategory(category: 'Overheads', amount: 2400, percentage: 30),
+    ];
+  }
+
+  Color _getSliceColor(int index) {
+    const palette = [
+      AppColors.mango,
+      AppColors.success,
+      Color(0xFF6B7280), // gray
+    ];
+    return palette[index % palette.length];
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final expenseData = ref.watch(dashboardExpenseChartProvider);
+    final isLoading =
+        ref.watch(dashboardProvider).value?.isLoadingCharts ?? false;
+
+    final displayData = expenseData.isEmpty && !isLoading
+        ? _getDummyData()
+        : expenseData;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.borderSubtle),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 4,
+                height: 20,
+                decoration: BoxDecoration(
+                  color: AppColors.mango,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Expense Breakdown',
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.deepGreen,
+                  fontSize: 16,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (isLoading)
+            Container(
+              height: 140,
+              decoration: BoxDecoration(
+                color: AppColors.surfaceMuted,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Center(child: CircularProgressIndicator()),
+            )
+          else if (displayData.isEmpty)
+            const _EmptyChartPlaceholder(message: 'No expense data yet')
+          else
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: displayData
+                        .map(
+                          (item) => Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 9,
+                                  height: 9,
+                                  decoration: BoxDecoration(
+                                    color: _getSliceColor(
+                                      displayData.indexOf(item),
+                                    ),
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    '${item.category} (${item.percentage.toInt()}%)',
+                                    style: TextStyle(
+                                      color: AppColors.deepGreen,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                SizedBox(
+                  width: 120,
+                  height: 120,
+                  child: PieChart(
+                    PieChartData(
+                      sectionsSpace: 1,
+                      centerSpaceRadius: 30,
+                      sections: List.generate(displayData.length, (index) {
+                        final item = displayData[index];
+                        return PieChartSectionData(
+                          value: item.percentage,
+                          color: _getSliceColor(index),
+                          radius: 14,
+                          title: '',
+                          showTitle: false,
+                        );
+                      }),
+                    ),
+                    swapAnimationDuration: const Duration(milliseconds: 300),
+                    swapAnimationCurve: Curves.easeInOut,
+                  ),
+                ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Channel Sales Bar Chart Card
+class _ChannelSalesCard extends ConsumerWidget {
+  const _ChannelSalesCard();
+
+  List<ChannelSales> _getDummyData() {
+    return [
+      ChannelSales(channelName: 'POS', revenue: 4800, percentage: 48),
+      ChannelSales(channelName: 'Online', revenue: 3600, percentage: 36),
+      ChannelSales(channelName: 'Wholesale', revenue: 1600, percentage: 16),
+    ];
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final channelData = ref.watch(dashboardChannelChartProvider);
+    final isLoading =
+        ref.watch(dashboardProvider).value?.isLoadingCharts ?? false;
+
+    final displayData = channelData.isEmpty && !isLoading
+        ? _getDummyData()
+        : channelData;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.borderSubtle),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 4,
+                height: 20,
+                decoration: BoxDecoration(
+                  color: AppColors.success,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Channel Sales',
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.deepGreen,
+                  fontSize: 16,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (isLoading)
+            Container(
+              height: 180,
+              decoration: BoxDecoration(
+                color: AppColors.surfaceMuted,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Center(child: CircularProgressIndicator()),
+            )
+          else if (displayData.isEmpty)
+            const _EmptyChartPlaceholder(message: 'No channel data yet')
+          else
+            SizedBox(
+              height: 180,
+              child: BarChart(
+                BarChartData(
+                  alignment: BarChartAlignment.spaceAround,
+                  maxY:
+                      displayData
+                          .map((e) => e.revenue)
+                          .fold<double>(0, (p, c) => c > p ? c : p) *
+                      1.2,
+                  minY: 0,
+                  barTouchData: BarTouchData(enabled: false),
+                  titlesData: FlTitlesData(
+                    show: true,
+                    bottomTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        getTitlesWidget: (value, meta) {
+                          final index = value.toInt();
+                          if (index >= 0 && index < displayData.length) {
+                            return Text(
+                              displayData[index].channelName,
+                              style: const TextStyle(
+                                color: AppColors.textSecondary,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            );
+                          }
+                          return const Text('');
+                        },
+                      ),
+                    ),
+                    leftTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                    rightTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                    topTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                  ),
+                  gridData: const FlGridData(show: false),
+                  borderData: FlBorderData(show: false),
+                  barGroups: List.generate(displayData.length, (index) {
+                    final value = displayData[index].revenue;
+                    return BarChartGroupData(
+                      x: index,
+                      barRods: [
+                        BarChartRodData(
+                          toY: value,
+                          color: AppColors.mango,
+                          width: 28,
+                          borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(6),
+                          ),
+                        ),
+                      ],
+                    );
+                  }),
+                ),
+                swapAnimationDuration: const Duration(milliseconds: 300),
+                swapAnimationCurve: Curves.easeInOut,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Inventory Value Line Chart Card
+class _InventoryValueCard extends ConsumerWidget {
+  const _InventoryValueCard();
+
+  List<InventoryValuePoint> _getDummyData() {
+    final now = DateTime.now();
+    return List.generate(7, (index) {
+      final date = now.subtract(Duration(days: 6 - index));
+      final value = 8000 + (index * 250);
+      return InventoryValuePoint(date: date, totalValue: value.toDouble());
+    });
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final inventoryValueData = ref.watch(dashboardInventoryValueChartProvider);
+    final isLoading =
+        ref.watch(dashboardProvider).value?.isLoadingCharts ?? false;
+
+    final displayData =
+        (inventoryValueData == null || inventoryValueData.isEmpty) && !isLoading
+        ? _getDummyData()
+        : (inventoryValueData ?? []);
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.borderSubtle),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 4,
+                height: 20,
+                decoration: BoxDecoration(
+                  color: AppColors.info,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Inventory Value',
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.deepGreen,
+                  fontSize: 16,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (isLoading)
+            Container(
+              height: 200,
+              decoration: BoxDecoration(
+                color: AppColors.surfaceMuted,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Center(child: CircularProgressIndicator()),
+            )
+          else if (displayData.isEmpty)
+            const _EmptyChartPlaceholder(message: 'No inventory data yet')
+          else
+            SizedBox(
+              height: 200,
+              child: LineChart(
+                LineChartData(
+                  titlesData: FlTitlesData(show: false),
+                  gridData: const FlGridData(show: false),
+                  borderData: FlBorderData(show: false),
+                  lineTouchData: LineTouchData(enabled: false),
+                  lineBarsData: [
+                    LineChartBarData(
+                      isCurved: true,
+                      color: AppColors.mango,
+                      barWidth: 3,
+                      dotData: const FlDotData(show: false),
+                      belowBarData: BarAreaData(
+                        show: true,
+                        color: AppColors.mango.withOpacity(0.15),
+                      ),
+                      spots: List.generate(displayData.length, (index) {
+                        final point = displayData[index];
+                        return FlSpot(index.toDouble(), point.totalValue);
+                      }),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Simple placeholder for empty charts
+class _EmptyChartPlaceholder extends StatelessWidget {
+  final String message;
+
+  const _EmptyChartPlaceholder({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 120,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: AppColors.surfaceMuted,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.borderSubtle),
+      ),
+      child: Center(
+        child: Text(
+          message,
+          style: TextStyle(
+            color: AppColors.textSecondary,
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// 7. Alerts Section
 /// Contains: Heading "Alerts" + "See all" button + list of alert cards
 class _AlertsSection extends ConsumerWidget {
   const _AlertsSection();
+
+  /// Filter alerts based on user role
+  List<DashboardAlert> _filterAlertsByRole(
+    List<DashboardAlert> alerts,
+    User? user,
+  ) {
+    if (user == null) return alerts;
+
+    final hasAdminRole = user.isAdmin;
+    final hasManagerRole = user.isManager;
+    final hasSalesRole = user.hasRole('sales');
+    final hasAccountantRole = user.hasRole('accountant');
+    final hasInventoryRole = user.hasRole('inventory');
+
+    // Admin/Manager: All alerts
+    if (hasAdminRole || hasManagerRole) {
+      return alerts;
+    }
+
+    // Inventory Clerk: Low Stock, Upcoming Batch only
+    if (hasInventoryRole) {
+      return alerts
+          .where(
+            (alert) =>
+                alert.type == AlertType.lowStock ||
+                alert.type == AlertType.upcomingBatch,
+          )
+          .toList();
+    }
+
+    // Sales: Promotion Expiry alerts only
+    if (hasSalesRole) {
+      return alerts
+          .where((alert) => alert.type == AlertType.promotionExpiry)
+          .toList();
+    }
+
+    // Accountant: Payment Due alerts only
+    if (hasAccountantRole) {
+      return alerts
+          .where((alert) => alert.type == AlertType.paymentDue)
+          .toList();
+    }
+
+    // Default: return all alerts (fallback)
+    return alerts;
+  }
 
   /// Format time as relative string (e.g., "2m ago", "1h ago")
   String _formatTimeAgo(DateTime dateTime) {
@@ -2098,7 +2920,12 @@ class _AlertsSection extends ConsumerWidget {
     // Get alerts from dashboard state
     final dashboardState = ref.watch(dashboardProvider);
     final viewModel = ref.read(dashboardProvider.notifier);
-    final alerts = dashboardState.value?.alerts ?? [];
+    final allAlerts = dashboardState.value?.alerts ?? [];
+
+    // Filter alerts based on user role
+    final user = ref.watch(currentUserProvider);
+    final alerts = _filterAlertsByRole(allAlerts, user);
+
     final isLoadingAlerts = dashboardState.value?.isLoadingAlerts ?? false;
     final selectedLocationId = dashboardState.value?.selectedLocationId;
 
@@ -2421,6 +3248,632 @@ class _AlertCard extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Loading Skeleton View for Admin Dashboard
+class _LoadingView extends StatelessWidget {
+  const _LoadingView();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 1. AppBar skeleton
+        _SkeletonAppBar(),
+
+        const SizedBox(height: 16),
+
+        // 2. Online Status Chip skeleton
+        Center(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: AppColors.borderSubtle, width: 1),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _SkeletonBox(width: 8, height: 8, borderRadius: 4),
+                const SizedBox(width: 8),
+                _SkeletonBox(width: 60, height: 14, borderRadius: 4),
+                const SizedBox(width: 6),
+                _SkeletonBox(width: 80, height: 14, borderRadius: 4),
+              ],
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 16),
+
+        // 3. Filter chips skeleton
+        _SkeletonFilterChips(),
+
+        const SizedBox(height: 16),
+
+        // 4. KPI cards skeleton (3 cards scrollable)
+        _SkeletonKPICards(),
+
+        const SizedBox(height: 20),
+
+        // 5. Quick Actions skeleton
+        _SkeletonQuickActions(),
+
+        const SizedBox(height: 20),
+
+        // 6. Analytics Overview skeleton (Sales Trend + Top Products)
+        _SkeletonAnalyticsOverview(),
+
+        const SizedBox(height: 20),
+
+        // 7. Alerts skeleton
+        _SkeletonAlerts(),
+
+        const SizedBox(height: 40),
+      ],
+    );
+  }
+}
+
+/// Reusable skeleton box component
+class _SkeletonBox extends StatelessWidget {
+  final double width;
+  final double height;
+  final double? borderRadius;
+  final Color? color;
+
+  const _SkeletonBox({
+    required this.width,
+    required this.height,
+    this.borderRadius,
+    this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        color: color ?? AppColors.surfaceMuted,
+        borderRadius: BorderRadius.circular(borderRadius ?? 8),
+      ),
+    );
+  }
+}
+
+/// AppBar skeleton for admin dashboard
+class _SkeletonAppBar extends StatelessWidget {
+  const _SkeletonAppBar();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: const BoxDecoration(color: Color(0xFFFDF7EE)),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          _SkeletonBox(width: 120, height: 24, borderRadius: 4),
+          Row(
+            children: [
+              _SkeletonBox(width: 40, height: 40, borderRadius: 20),
+              const SizedBox(width: 8),
+              _SkeletonBox(width: 40, height: 40, borderRadius: 20),
+              const SizedBox(width: 8),
+              _SkeletonBox(width: 40, height: 40, borderRadius: 20),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Filter chips skeleton
+class _SkeletonFilterChips extends StatelessWidget {
+  const _SkeletonFilterChips();
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          _SkeletonBox(width: 120, height: 36, borderRadius: 20),
+          const SizedBox(width: 8),
+          _SkeletonBox(width: 70, height: 36, borderRadius: 20),
+          const SizedBox(width: 6),
+          _SkeletonBox(width: 90, height: 36, borderRadius: 20),
+          const SizedBox(width: 6),
+          _SkeletonBox(width: 100, height: 36, borderRadius: 20),
+          const SizedBox(width: 6),
+          _SkeletonBox(width: 110, height: 36, borderRadius: 20),
+        ],
+      ),
+    );
+  }
+}
+
+/// KPI cards skeleton (3 cards scrollable)
+class _SkeletonKPICards extends StatelessWidget {
+  const _SkeletonKPICards();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 148,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            _SkeletonKPICard(),
+            const SizedBox(width: 12),
+            _SkeletonKPICard(),
+            const SizedBox(width: 12),
+            _SkeletonKPICard(),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Single KPI card skeleton
+class _SkeletonKPICard extends StatelessWidget {
+  const _SkeletonKPICard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 190,
+      height: 148,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.borderSubtle, width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _SkeletonBox(width: 36, height: 36, borderRadius: 18),
+          const SizedBox(height: 10),
+          _SkeletonBox(width: 80, height: 12, borderRadius: 4),
+          const SizedBox(height: 6),
+          _SkeletonBox(width: 60, height: 32, borderRadius: 4),
+          const Spacer(),
+          _SkeletonBox(width: 100, height: 24, borderRadius: 8),
+        ],
+      ),
+    );
+  }
+}
+
+/// Quick Actions skeleton (2x2 grid)
+class _SkeletonQuickActions extends StatelessWidget {
+  const _SkeletonQuickActions();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _SkeletonBox(width: 120, height: 20, borderRadius: 4),
+        const SizedBox(height: 16),
+        // First row
+        Row(
+          children: [
+            Expanded(child: _SkeletonQuickActionCard()),
+            const SizedBox(width: 12),
+            Expanded(child: _SkeletonQuickActionCard()),
+          ],
+        ),
+        const SizedBox(height: 12),
+        // Second row
+        Row(
+          children: [
+            Expanded(child: _SkeletonQuickActionCard()),
+            const SizedBox(width: 12),
+            Expanded(child: _SkeletonQuickActionCard()),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+/// Quick Action card skeleton
+class _SkeletonQuickActionCard extends StatelessWidget {
+  const _SkeletonQuickActionCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.borderSubtle, width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.shadowSoft,
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _SkeletonBox(width: 56, height: 56, borderRadius: 8),
+          const SizedBox(height: 20),
+          _SkeletonBox(width: 100, height: 18, borderRadius: 4),
+          const SizedBox(height: 4),
+          _SkeletonBox(width: 80, height: 14, borderRadius: 4),
+        ],
+      ),
+    );
+  }
+}
+
+/// Analytics Overview skeleton (Sales Trend + Top Products side by side)
+class _SkeletonAnalyticsOverview extends StatelessWidget {
+  const _SkeletonAnalyticsOverview();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _SkeletonBox(width: 160, height: 20, borderRadius: 4),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.borderSubtle),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _SkeletonBox(width: 100, height: 18, borderRadius: 4),
+                    const SizedBox(height: 16),
+                    _SkeletonBox(
+                      width: double.infinity,
+                      height: 200,
+                      borderRadius: 12,
+                      color: AppColors.surfaceMuted.withOpacity(0.3),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.borderSubtle),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _SkeletonBox(width: 100, height: 18, borderRadius: 4),
+                    const SizedBox(height: 16),
+                    _SkeletonBox(
+                      width: double.infinity,
+                      height: 200,
+                      borderRadius: 100,
+                      color: AppColors.surfaceMuted.withOpacity(0.3),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+/// Alerts skeleton
+class _SkeletonAlerts extends StatelessWidget {
+  const _SkeletonAlerts();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Header with orange borders
+        Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFFFDF7EE),
+            border: Border(
+              left: BorderSide(color: AppColors.mango, width: 2),
+              right: BorderSide(color: AppColors.mango, width: 2),
+            ),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  _SkeletonBox(
+                    width: 24,
+                    height: 24,
+                    borderRadius: 12,
+                    color: AppColors.mango.withOpacity(0.3),
+                  ),
+                  const SizedBox(width: 8),
+                  _SkeletonBox(width: 60, height: 18, borderRadius: 4),
+                ],
+              ),
+              _SkeletonBox(width: 60, height: 14, borderRadius: 4),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        // Alert cards
+        Column(
+          children: [
+            _SkeletonAlertCard(),
+            const SizedBox(height: 12),
+            _SkeletonAlertCard(),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+/// Single alert card skeleton
+class _SkeletonAlertCard extends StatelessWidget {
+  const _SkeletonAlertCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.shadowSoft,
+              blurRadius: 4,
+              offset: const Offset(0, 1),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            // Left border stripe
+            Container(
+              width: 4,
+              decoration: BoxDecoration(
+                color: AppColors.error.withOpacity(0.3),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(16),
+                  bottomLeft: Radius.circular(16),
+                ),
+              ),
+            ),
+            // Content
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 14,
+                ),
+                child: Row(
+                  children: [
+                    _SkeletonBox(width: 44, height: 44, borderRadius: 22),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _SkeletonBox(width: 180, height: 16, borderRadius: 4),
+                          const SizedBox(height: 4),
+                          _SkeletonBox(width: 150, height: 14, borderRadius: 4),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    _SkeletonBox(width: 50, height: 12, borderRadius: 4),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Empty State Overlay for Admin Dashboard
+/// Note: Uses BackdropFilter which blocks interactions behind the overlay.
+/// This is intentional per design - the empty state is shown as a modal overlay
+/// with blurred background. Navigation behind is blocked to focus user attention.
+class _EmptyStateOverlay extends ConsumerWidget {
+  const _EmptyStateOverlay();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final viewModel = ref.read(dashboardProvider.notifier);
+
+    return BackdropFilter(
+      filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+      child: Container(
+        color: Colors.black.withOpacity(0.3),
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 320),
+              child: _EmptyHeroCard(
+                onInventoryTap: () {
+                  context.go('/inventory');
+                },
+                onRefreshTap: () {
+                  viewModel.loadDashboardData();
+                },
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Hero Empty Card
+class _EmptyHeroCard extends StatelessWidget {
+  final VoidCallback onInventoryTap;
+  final VoidCallback onRefreshTap;
+
+  const _EmptyHeroCard({
+    required this.onInventoryTap,
+    required this.onRefreshTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(
+        18,
+      ), // Reduced from 24 to 18 (25% reduction)
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 20,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Illustration placeholder with orange background
+          Container(
+            width: 90, // Reduced from 120 to 90 (25% reduction)
+            height: 90, // Reduced from 120 to 90 (25% reduction)
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFE5D6), // Light orange background
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              Icons.dashboard_outlined,
+              size: 48, // Reduced from 64 to 48 (25% reduction)
+              color: AppColors.textSecondary.withOpacity(0.5),
+            ),
+          ),
+
+          const SizedBox(height: 18), // Reduced from 24 to 18 (25% reduction)
+          // Headline
+          Text(
+            'Your dashboard will come alive here',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: AppColors.deepGreen,
+              fontSize:
+                  18, // Reduced from 20 to 18 (10% reduction, but keeping readable)
+            ),
+            textAlign: TextAlign.center,
+          ),
+
+          const SizedBox(height: 9), // Reduced from 12 to 9 (25% reduction)
+          // Supportive copy
+          Text(
+            'Once you start adding stock and recording activity, your metrics and alerts will appear.',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: AppColors.textSecondary,
+              fontSize: 13, // Reduced from 14 to 13 (slight reduction)
+              height: 1.5,
+            ),
+            textAlign: TextAlign.center,
+          ),
+
+          const SizedBox(height: 24), // Reduced from 32 to 24 (25% reduction)
+          // Primary CTA button "Go to Inventory" with gradient (orange to yellow)
+          Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  AppColors.mango, // Orange
+                  const Color(0xFFFFBD3B), // Yellow
+                ],
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+              ),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: ElevatedButton(
+              onPressed: onInventoryTap,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.transparent,
+                shadowColor: Colors.transparent,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 0,
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.inventory_2_outlined, size: 18),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'Go to Inventory',
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 12),
+
+          // Secondary "Refresh" link/button
+          TextButton(
+            onPressed: onRefreshTap,
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+            ),
+            child: Text(
+              'Refresh',
+              style: TextStyle(
+                color: AppColors.deepGreen,
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
